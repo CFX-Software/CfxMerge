@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-main: #09090b;
+    /* Zinc 950 - slightly lighter than pure black */
+    --bg-side: #121212;
+    /* Slightly distinct sidebar */
+    --bg-card: #18181b;
+    /* Zinc 900 */
+    --border-subtle: #27272a;
+    /* Zinc 800 */
+    --border-active: #3f3f46;
+    /* Zinc 700 */
+    --primary: #f48024;
+    --text-primary: #fafafa;
+    /* Zinc 50 */
+    --text-secondary: #a1a1aa;
+    /* Zinc 400 */
+    --text-muted: #52525b;
+    /* Zinc 600 */
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    overflow: hidden;
+    letter-spacing: -0.01em;
+    /* Slightly less tight */
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 99px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-active);
+  }
+}
+
+@layer components {
+
+  /* Clean, flat panel - No Glass/Blur to reduce noise */
+  .layout-panel {
+    @apply bg-transparent border-r border-[#27272a];
+  }
+
+  /* Improved Nav Items */
+  .nav-item {
+    @apply flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer border border-transparent;
+    @apply text-[14px] font-semibold text-[#a1a1aa] bg-[#18181b]/50 hover:bg-[#18181b] hover:text-white hover:border-[#27272a];
+  }
+
+  .nav-item-active {
+    @apply bg-[#f48024] text-white shadow-lg shadow-orange-500/20 border-[#f48024];
+  }
+
+  .content-card {
+    @apply bg-[#18181b] border border-[#27272a] rounded-lg p-5 transition-all duration-200;
+  }
+
+  .content-card:hover {
+    @apply border-[#3f3f46];
+  }
+
+  /* Cleaner inputs - No glows */
+  .input-field {
+    @apply bg-[#09090b] border border-[#27272a] rounded-md px-3 py-2 text-[13px] outline-none transition-colors;
+    @apply focus:border-[#f48024] placeholder:text-[#52525b] text-white;
+  }
+
+  .btn {
+    @apply px-4 py-2 rounded-md text-[13px] font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply bg-[#f48024] text-white hover:bg-[#f48024]/90 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-black hover:bg-gray-100 border border-gray-200 shadow-sm;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-[#a1a1aa] hover:text-white hover:bg-[#27272a];
+  }
+
+  .badge {
+    @apply px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border;
+  }
+
+  .badge-success {
+    @apply bg-emerald-500/10 text-emerald-500 border-emerald-500/20;
+  }
+
+  .badge-warning {
+    @apply bg-amber-500/10 text-amber-500 border-amber-500/20;
+  }
+
+  .badge-error {
+    @apply bg-red-500/10 text-red-500 border-red-500/20;
+  }
+
+  .accent-card {
+    @apply p-6 rounded-2xl border border-white/5 bg-white/[0.02] transition-all duration-200 hover:border-white/10;
+  }
+
+  .heading-1 {
+    @apply text-2xl font-bold tracking-tight text-white;
+  }
+
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-[#52525b] mb-3;
+  }
+
+  .gta-header {
+    font-family: 'Chalet', 'Impact', sans-serif;
+    letter-spacing: -0.05em;
+  }
+}
+
+/* Swiss typography refinements */
+.swiss-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  font-variant-ligatures: none;
+}
