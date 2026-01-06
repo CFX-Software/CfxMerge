@@ -6,11 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
 type App struct {
-	ctx context.Context
+	ctx     context.Context
+	scanner *Scanner
 }
 
 // NewApp creates a new App application struct
@@ -34,11 +37,14 @@ type FileInfo struct {
 
 // DuplicateGroup represents a group of duplicate files
 type DuplicateGroup struct {
-	ID          string     `json:"id"`
-	Files       []FileInfo `json:"files"`
-	Status      string     `json:"status"`
-	HasWarnings bool       `json:"hasWarnings"`
-	WarningCount int       `json:"warningCount"`
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Status   string   `json:"status"`
+	Paths    []string `json:"paths"`
+	Expanded bool     `json:"expanded"`
+	Selected bool     `json:"selected"`
+	HasWarnings bool  `json:"hasWarnings,omitempty"`
+	WarningCount int  `json:"warningCount,omitempty"`
 }
 
 // ScanDirectory scans a directory for files
@@ -75,12 +81,7 @@ func (a *App) FindDuplicates(files []FileInfo) []DuplicateGroup {
 			continue
 		}
 
-		group := DuplicateGroup{
-			ID:     fmt.Sprintf("duplicate_%d", i),
-			Files:  []FileInfo{file},
-			Status: "Ready to merge",
-		}
-
+		paths := []string{file.Path}
 		processed[file.Path] = true
 		baseName := strings.TrimSuffix(file.Name, filepath.Ext(file.Name))
 
@@ -90,17 +91,64 @@ func (a *App) FindDuplicates(files []FileInfo) []DuplicateGroup {
 				otherBaseName := strings.TrimSuffix(otherFile.Name, filepath.Ext(otherFile.Name))
 				if strings.Contains(strings.ToLower(baseName), strings.ToLower(otherBaseName)) ||
 					strings.Contains(strings.ToLower(otherBaseName), strings.ToLower(baseName)) {
-					group.Files = append(group.Files, otherFile)
+					paths = append(paths, otherFile.Path)
 					processed[otherFile.Path] = true
 				}
 			}
 		}
 
 		// Only add groups with duplicates
-		if len(group.Files) > 1 {
+		if len(paths) > 1 {
+			group := DuplicateGroup{
+				ID:       fmt.Sprintf("duplicate_%d", i),
+				Name:     file.Name,
+				Status:   "ready",
+				Paths:    paths,
+				Expanded: false,
+				Selected: true,
+			}
 			duplicates = append(duplicates, group)
 		}
 	}
 
 	return duplicates
+}
+
+// StartScan initiates an asynchronous scan with real-time progress updates
+func (a *App) StartScan(dirPath string) error {
+	// Cancel any existing scan
+	if a.scanner != nil {
+		a.scanner.Cancel()
+	}
+
+	// Create new scanner with 30 workers
+	a.scanner = NewScanner(a.ctx, 30)
+
+	// Run scan in background
+	go func() {
+		results, err := a.scanner.ScanWithProgress(dirPath)
+		if err != nil {
+			runtime.EventsEmit(a.ctx, "scan:error", err.Error())
+			return
+		}
+		runtime.EventsEmit(a.ctx, "scan:complete", results)
+	}()
+
+	return nil
+}
+
+// CancelScan cancels the currently running scan
+func (a *App) CancelScan() error {
+	if a.scanner != nil {
+		a.scanner.Cancel()
+		a.scanner = nil
+	}
+	return nil
+}
+
+// SelectFolder opens a directory picker dialog
+func (a *App) SelectFolder() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select FiveM Resource Folder",
+	})
 }
