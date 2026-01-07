@@ -1,15 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './components/Sidebar';
 import { MergerView } from './views/MergerView';
 import { VehicleConverterView } from './views/VehicleConverterView';
 import { SettingsView } from './views/SettingsView';
+import { UpdateDiscordPresence } from '../wailsjs/go/main/App';
 import './style.css';
 
 type Tab = 'merger' | 'converter' | 'settings';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('merger');
+
+  // Update Discord Rich Presence when tab changes
+  useEffect(() => {
+    UpdateDiscordPresence(activeTab).catch(() => {
+      // Silently fail if Discord is not running
+    });
+  }, [activeTab]);
 
   const renderView = () => {
     switch (activeTab) {

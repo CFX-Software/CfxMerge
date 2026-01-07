@@ -3,13 +3,15 @@ export interface FileInfo {
   name: string;
   size: number;
   modTime: string;
+  isEncrypted: boolean;
 }
 
 export interface DuplicateGroup {
   id: string;
   name: string;
   status: string;
-  paths: string[];
+  files: FileInfo[];
+  paths: string[]; // Deprecated: use files instead
   expanded: boolean;
   selected: boolean;
   hasWarnings?: boolean;

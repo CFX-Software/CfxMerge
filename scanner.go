@@ -1,10 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -61,45 +60,44 @@ type ScanResults struct {
 
 // IsFXAPEncrypted checks if a file is encrypted with FiveM's FXAP encryption
 func IsFXAPEncrypted(filePath string) (bool, error) {
-	f, err := os.Open(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
 
-	// Read first 4 bytes to check for FXAP magic
-	header := make([]byte, 4)
-	if _, err := io.ReadFull(f, header); err != nil {
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return false, nil // File too small to be FXAP
-		}
-		return false, err
+	// File must be at least 4 bytes
+	if len(data) < 4 {
+		return false, nil
 	}
 
-	// FXAP encrypted files start with "sRDI" (0x73524449) magic bytes
-	fxapMagic := []byte{0x73, 0x52, 0x44, 0x49} // "sRDI"
-	return bytes.Equal(header, fxapMagic), nil
+	// Read first 4 bytes as little-endian uint32
+	magic := binary.LittleEndian.Uint32(data[:4])
+
+	// FXAP magic number is 0x50415846 ("FXAP" in ASCII)
+	const magicFXAP = 0x50415846
+
+	return magic == magicFXAP, nil
 }
 
 // IsRSC7 checks if file is a normal RSC7 format (not encrypted)
 func IsRSC7(filePath string) (bool, error) {
-	f, err := os.Open(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
 
-	header := make([]byte, 4)
-	if _, err := io.ReadFull(f, header); err != nil {
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return false, nil
-		}
-		return false, err
+	// File must be at least 4 bytes
+	if len(data) < 4 {
+		return false, nil
 	}
 
-	// Normal GTA5 resources start with "RSC7" (0x52534337)
-	rsc7Magic := []byte{0x52, 0x53, 0x43, 0x37} // "RSC7"
-	return bytes.Equal(header, rsc7Magic), nil
+	// Read first 4 bytes as little-endian uint32
+	magic := binary.LittleEndian.Uint32(data[:4])
+
+	// RSC7 magic number is 0x37435352 ("RSC7" in ASCII)
+	const magicRSC7 = 0x37435352
+
+	return magic == magicRSC7, nil
 }
 
 // NewScanner creates a new scanner instance
@@ -365,27 +363,28 @@ func (s *Scanner) worker(wg *sync.WaitGroup, jobs <-chan string, results chan<- 
 			continue
 		}
 
-		// Check for FXAP encryption on resource files
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".ydr" || ext == ".yft" || ext == ".ytd" || ext == ".ydd" {
-			encrypted, err := IsFXAPEncrypted(path)
-			if err == nil && encrypted {
-				errors <- FileError{
-					Path:    path,
-					Type:    "encrypted",
-					Message: "FXAP encrypted (escrow/protected resource)",
-				}
-				atomic.AddInt64(filesScanned, 1)
-				continue
+		// Check for FXAP encryption on ALL resource files
+		isEncrypted := false
+
+		// Check ALL FiveM resource types for encryption
+		encrypted, err := IsFXAPEncrypted(path)
+		if err == nil && encrypted {
+			isEncrypted = true
+			// Add as error - FXAP encrypted files cannot be merged
+			errors <- FileError{
+				Path:    path,
+				Type:    "encrypted",
+				Message: "FXAP encrypted - cannot be merged",
 			}
 		}
 
 		// Create FileInfo
 		fileInfo := FileInfo{
-			Path:    path,
-			Name:    info.Name(),
-			Size:    info.Size(),
-			ModTime: info.ModTime().Format("2006-01-02 15:04:05"),
+			Path:        path,
+			Name:        info.Name(),
+			Size:        info.Size(),
+			ModTime:     info.ModTime().Format("2006-01-02 15:04:05"),
+			IsEncrypted: isEncrypted,
 		}
 
 		results <- fileInfo
@@ -416,19 +415,46 @@ func (s *Scanner) groupDuplicates(files []FileInfo) []DuplicateGroup {
 	duplicates := []DuplicateGroup{}
 	for _, groupFiles := range fileGroups {
 		if len(groupFiles) >= 2 {
-			// Extract just the paths for display
+			// Extract paths and check for encryption
 			paths := make([]string, len(groupFiles))
+			hasEncrypted := false
 			for i, f := range groupFiles {
 				paths[i] = f.Path
+				if f.IsEncrypted {
+					hasEncrypted = true
+				}
+			}
+
+			// Group is ready to merge if at least one file is not encrypted
+			status := "ready"
+			if hasEncrypted {
+				// Check if ALL files are encrypted
+				allEncrypted := true
+				for _, f := range groupFiles {
+					if !f.IsEncrypted {
+						allEncrypted = false
+						break
+					}
+				}
+				if allEncrypted {
+					status = "error" // Cannot merge if all files are encrypted
+				}
 			}
 
 			group := DuplicateGroup{
-				ID:       uuid.New().String(),
-				Name:     groupFiles[0].Name,
-				Status:   "ready",
-				Paths:    paths,
-				Expanded: false,
-				Selected: true,
+				ID:           uuid.New().String(),
+				Name:         groupFiles[0].Name,
+				Status:       status,
+				Files:        groupFiles, // Include full file info
+				Paths:        paths,      // Keep for backward compatibility
+				Expanded:     false,
+				Selected:     true, // Auto-select by default
+				HasWarnings:  hasEncrypted,
+				WarningCount: 0,
+			}
+
+			if hasEncrypted {
+				group.WarningCount = 1
 			}
 
 			duplicates = append(duplicates, group)

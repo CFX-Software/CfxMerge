@@ -12,8 +12,9 @@ import (
 
 // App struct
 type App struct {
-	ctx     context.Context
-	scanner *Scanner
+	ctx        context.Context
+	scanner    *Scanner
+	discordRPC *DiscordRPC
 }
 
 // NewApp creates a new App application struct
@@ -25,26 +26,37 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Initialize Discord Rich Presence
+	a.discordRPC = NewDiscordRPC()
+}
+
+// shutdown is called when the app is shutting down
+func (a *App) shutdown(ctx context.Context) {
+	if a.discordRPC != nil {
+		a.discordRPC.Shutdown()
+	}
 }
 
 // FileInfo represents information about a file
 type FileInfo struct {
-	Path     string `json:"path"`
-	Name     string `json:"name"`
-	Size     int64  `json:"size"`
-	ModTime  string `json:"modTime"`
+	Path        string `json:"path"`
+	Name        string `json:"name"`
+	Size        int64  `json:"size"`
+	ModTime     string `json:"modTime"`
+	IsEncrypted bool   `json:"isEncrypted"`
 }
 
 // DuplicateGroup represents a group of duplicate files
 type DuplicateGroup struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Status   string   `json:"status"`
-	Paths    []string `json:"paths"`
-	Expanded bool     `json:"expanded"`
-	Selected bool     `json:"selected"`
-	HasWarnings bool  `json:"hasWarnings,omitempty"`
-	WarningCount int  `json:"warningCount,omitempty"`
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Status       string     `json:"status"`
+	Files        []FileInfo `json:"files"`
+	Paths        []string   `json:"paths"` // Deprecated: use Files instead
+	Expanded     bool       `json:"expanded"`
+	Selected     bool       `json:"selected"`
+	HasWarnings  bool       `json:"hasWarnings,omitempty"`
+	WarningCount int        `json:"warningCount,omitempty"`
 }
 
 // ScanDirectory scans a directory for files
@@ -151,4 +163,22 @@ func (a *App) SelectFolder() (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Select FiveM Resource Folder",
 	})
+}
+
+// UpdateDiscordPresence updates Discord Rich Presence based on current view
+func (a *App) UpdateDiscordPresence(view string) error {
+	if a.discordRPC == nil {
+		return nil
+	}
+
+	switch view {
+	case "merger":
+		return a.discordRPC.UpdateMergerView()
+	case "converter":
+		return a.discordRPC.UpdateConverterView()
+	case "settings":
+		return a.discordRPC.UpdateSettingsView()
+	default:
+		return a.discordRPC.UpdateMergerView()
+	}
 }

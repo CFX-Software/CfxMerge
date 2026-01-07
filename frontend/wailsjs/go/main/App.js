@@ -21,3 +21,7 @@ export function SelectFolder() {
 export function StartScan(arg1) {
   return window['go']['main']['App']['StartScan'](arg1);
 }
+
+export function UpdateDiscordPresence(arg1) {
+  return window['go']['main']['App']['UpdateDiscordPresence'](arg1);
+}

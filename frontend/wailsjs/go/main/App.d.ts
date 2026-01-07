@@ -11,3 +11,5 @@ export function ScanDirectory(arg1:string):Promise<Array<main.FileInfo>>;
 export function SelectFolder():Promise<string>;
 
 export function StartScan(arg1:string):Promise<void>;
+
+export function UpdateDiscordPresence(arg1:string):Promise<void>;
