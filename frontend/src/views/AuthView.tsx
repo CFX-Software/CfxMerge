@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Key, ExternalLink, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { SaveAPIKey } from '../../wailsjs/go/main/App';
+import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 interface AuthViewProps {
   onAuthSuccess: () => void;
@@ -32,7 +33,7 @@ export const AuthView = ({ onAuthSuccess }: AuthViewProps) => {
   };
 
   const openDashboard = () => {
-    window.open('https://cfx.software/dashboard/api-keys', '_blank');
+    BrowserOpenURL('https://cfx.software/api');
   };
 
   return (
@@ -98,7 +99,7 @@ export const AuthView = ({ onAuthSuccess }: AuthViewProps) => {
           <p className="text-center text-[11px] text-[#666] mt-3">
             Don't have an account?{' '}
             <button
-              onClick={() => window.open('https://cfx.software/auth/signin', '_blank')}
+              onClick={() => BrowserOpenURL('https://cfx.software/auth/signin')}
               className="text-[#f48024] hover:underline"
             >
               Sign up for free
