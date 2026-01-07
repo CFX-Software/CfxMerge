@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	apiBaseURL     = "https://api.cfx.software/api/v1"
+	apiBaseURL     = "https://adamant-deer-971.convex.site/api/v1"
 	serviceName    = "CFXMerge"
 	apiKeyAccount  = "api_key"
 	cacheDuration  = 5 * time.Minute // Cache user data for 5 minutes
