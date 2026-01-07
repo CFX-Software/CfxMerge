@@ -18,7 +18,10 @@
       "Bash(wails build:*)",
       "Bash(go get:*)",
       "Bash(git push:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(wails generate:*)",
+      "Bash(set CGO_ENABLED=1)",
+      "Bash(go mod tidy:*)"
     ]
   }
 }

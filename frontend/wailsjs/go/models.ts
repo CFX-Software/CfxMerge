@@ -181,7 +181,85 @@ export namespace main {
 		}
 	}
 	
+	export class Job {
+	    ID: string;
+	    JobID: string;
+	    ConversionID: string;
+	    Status: string;
+	    Progress: number;
+	    StatusMessage: string;
+	    Tier: string;
+	    RemainingRequests: number;
+	    CreatedAt: number;
+	    StartedAt: number;
+	    CompletedAt: number;
+	    ExpiresAt: number;
+	    ErrorMessage: string;
+	    TotalURLs: number;
+	    SuccessfulCount: number;
+	    FailedCount: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new Job(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.JobID = source["JobID"];
+	        this.ConversionID = source["ConversionID"];
+	        this.Status = source["Status"];
+	        this.Progress = source["Progress"];
+	        this.StatusMessage = source["StatusMessage"];
+	        this.Tier = source["Tier"];
+	        this.RemainingRequests = source["RemainingRequests"];
+	        this.CreatedAt = source["CreatedAt"];
+	        this.StartedAt = source["StartedAt"];
+	        this.CompletedAt = source["CompletedAt"];
+	        this.ExpiresAt = source["ExpiresAt"];
+	        this.ErrorMessage = source["ErrorMessage"];
+	        this.TotalURLs = source["TotalURLs"];
+	        this.SuccessfulCount = source["SuccessfulCount"];
+	        this.FailedCount = source["FailedCount"];
+	    }
+	}
+	
+	export class Result {
+	    ID: string;
+	    JobID: string;
+	    OriginalURL: string;
+	    Status: string;
+	    DownloadURL: string;
+	    ResourceName: string;
+	    FileSize: number;
+	    ExpiresAt: number;
+	    ErrorMessage: string;
+	    Downloaded: boolean;
+	    Extracted: boolean;
+	    LocalPath: string;
+	    CreatedAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.JobID = source["JobID"];
+	        this.OriginalURL = source["OriginalURL"];
+	        this.Status = source["Status"];
+	        this.DownloadURL = source["DownloadURL"];
+	        this.ResourceName = source["ResourceName"];
+	        this.FileSize = source["FileSize"];
+	        this.ExpiresAt = source["ExpiresAt"];
+	        this.ErrorMessage = source["ErrorMessage"];
+	        this.Downloaded = source["Downloaded"];
+	        this.Extracted = source["Extracted"];
+	        this.LocalPath = source["LocalPath"];
+	        this.CreatedAt = source["CreatedAt"];
+	    }
+	}
 	
 
 }

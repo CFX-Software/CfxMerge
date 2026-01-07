@@ -1,15 +1,40 @@
 import { useState, useEffect } from 'react';
-import { Key, Crown, Infinity, Shield, Zap, FolderSync, Download, LogOut } from 'lucide-react';
+import { Key, Crown, Infinity, Shield, Zap, FolderSync, Download, LogOut, RefreshCw } from 'lucide-react';
 import { GetAuthStatus, Logout } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 
 export const SettingsView = () => {
   const [authData, setAuthData] = useState<main.AuthResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<number | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
   useEffect(() => {
     loadAuthStatus();
   }, []);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (!lastRefresh) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastRefresh;
+      const remaining = COOLDOWN_MS - elapsed;
+
+      if (remaining <= 0) {
+        setCooldownRemaining(0);
+        clearInterval(interval);
+      } else {
+        setCooldownRemaining(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lastRefresh]);
 
   const loadAuthStatus = async () => {
     try {
@@ -22,14 +47,35 @@ export const SettingsView = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    if (cooldownRemaining > 0) return;
+
+    setRefreshing(true);
+    try {
+      const data = await GetAuthStatus();
+      setAuthData(data);
+      setLastRefresh(Date.now());
+    } catch (err) {
+      console.error('Failed to refresh auth status:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const formatCooldown = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const canRefresh = cooldownRemaining === 0 && !refreshing;
+
   const handleLogout = async () => {
-    if (confirm('Are you sure you want to log out?')) {
-      try {
-        await Logout();
-        window.location.reload();
-      } catch (err) {
-        console.error('Logout failed:', err);
-      }
+    try {
+      await Logout();
+      window.location.reload();
+    } catch (err) {
+      console.error('Logout failed:', err);
     }
   };
 
@@ -50,60 +96,75 @@ export const SettingsView = () => {
               <div className="w-8 h-8 border-3 border-[#333] border-t-[#f48024] rounded-full animate-spin" />
             </div>
           ) : authData ? (
-            <div className="p-6 rounded-lg border border-[#f48024]/20 bg-gradient-to-br from-[#f48024]/5 to-transparent">
+            <div className={`p-6 rounded-lg border border-[#f48024]/20 bg-gradient-to-br from-[#f48024]/5 to-transparent transition-all duration-500 ${refreshing ? 'scale-[0.99] opacity-90' : 'scale-100 opacity-100'}`}>
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4">
                   {authData.user.image ? (
                     <img
                       src={authData.user.image}
                       alt={authData.user.name}
-                      className="w-16 h-16 rounded-lg border border-[#f48024]/20"
+                      className={`w-16 h-16 rounded-lg border border-[#f48024]/20 transition-all duration-500 ${refreshing ? 'animate-pulse' : ''}`}
                     />
                   ) : (
-                    <div className="w-16 h-16 rounded-lg bg-[#f48024]/10 border border-[#f48024]/20 flex items-center justify-center">
+                    <div className={`w-16 h-16 rounded-lg bg-[#f48024]/10 border border-[#f48024]/20 flex items-center justify-center transition-all duration-500 ${refreshing ? 'animate-pulse' : ''}`}>
                       <Crown size={28} className="text-[#f48024]" />
                     </div>
                   )}
                   <div>
-                    <h2 className="text-[20px] font-semibold text-white mb-1">{authData.user.name}</h2>
+                    <h2 className={`text-[20px] font-semibold text-white mb-1 transition-all duration-300 ${refreshing ? 'opacity-70' : 'opacity-100'}`}>{authData.user.name}</h2>
                     <div className="flex items-center gap-2">
                       <Shield size={14} className={authData.stats.isPremium ? 'text-emerald-500' : 'text-[#666]'} />
-                      <span className={`text-[12px] font-medium ${authData.stats.isPremium ? 'text-emerald-400' : 'text-[#888]'}`}>
+                      <span className={`text-[12px] font-medium transition-all duration-300 ${refreshing ? 'opacity-70' : 'opacity-100'} ${authData.stats.isPremium ? 'text-emerald-400' : 'text-[#888]'}`}>
                         {authData.stats.accountTier.charAt(0).toUpperCase() + authData.stats.accountTier.slice(1)} Account
                       </span>
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[11px] font-medium rounded transition-colors"
-                >
-                  <LogOut size={12} />
-                  Logout
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefresh}
+                    disabled={!canRefresh}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 border text-[11px] font-medium rounded transition-all duration-300 ${
+                      canRefresh
+                        ? 'bg-[#f48024]/10 hover:bg-[#f48024]/20 border-[#f48024]/20 text-[#f48024] hover:scale-105'
+                        : 'bg-[#333]/50 border-[#444] text-[#666] cursor-not-allowed'
+                    }`}
+                    title={cooldownRemaining > 0 ? `Available in ${formatCooldown(cooldownRemaining)}` : 'Refresh user data'}
+                  >
+                    <RefreshCw size={12} className={refreshing ? 'animate-spin' : cooldownRemaining > 0 ? 'opacity-50' : ''} />
+                    {refreshing ? 'Refreshing...' : cooldownRemaining > 0 ? formatCooldown(cooldownRemaining) : 'Refresh'}
+                  </button>
+                  <button
+                    onClick={() => setShowLogoutModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[11px] font-medium rounded transition-all duration-300 hover:scale-105"
+                  >
+                    <LogOut size={12} />
+                    Logout
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 rounded bg-[#222] border border-[#333]">
+                <div className={`p-4 rounded bg-[#222] border border-[#333] transition-all duration-500 ${refreshing ? 'animate-pulse' : ''}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Infinity size={16} className="text-[#f48024]" />
                     <span className="text-[11px] text-[#666] uppercase tracking-wider">Credits</span>
                   </div>
-                  <p className="text-[18px] font-semibold text-white">{authData.stats.credits}</p>
+                  <p className="text-[18px] font-semibold text-white transition-all duration-300">{authData.stats.credits}</p>
                 </div>
-                <div className="p-4 rounded bg-[#222] border border-[#333]">
+                <div className={`p-4 rounded bg-[#222] border border-[#333] transition-all duration-500 ${refreshing ? 'animate-pulse' : ''}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Zap size={16} className="text-emerald-500" />
                     <span className="text-[11px] text-[#666] uppercase tracking-wider">Conversions</span>
                   </div>
-                  <p className="text-[18px] font-semibold text-white">{authData.stats.conversions.toLocaleString()}</p>
+                  <p className="text-[18px] font-semibold text-white transition-all duration-300">{authData.stats.conversions.toLocaleString()}</p>
                 </div>
-                <div className="p-4 rounded bg-[#222] border border-[#333]">
+                <div className={`p-4 rounded bg-[#222] border border-[#333] transition-all duration-500 ${refreshing ? 'animate-pulse' : ''}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <Download size={16} className="text-blue-500" />
                     <span className="text-[11px] text-[#666] uppercase tracking-wider">Downloads</span>
                   </div>
-                  <p className="text-[18px] font-semibold text-white">{authData.stats.downloads.toLocaleString()}</p>
+                  <p className="text-[18px] font-semibold text-white transition-all duration-300">{authData.stats.downloads.toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -222,6 +283,32 @@ export const SettingsView = () => {
 
         </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#222] border border-[#333] rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-[18px] font-semibold text-white mb-2">Confirm Logout</h3>
+            <p className="text-[13px] text-[#888] mb-6">
+              Are you sure you want to log out? You'll need to enter your API key again to use the app.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 px-4 py-2 bg-[#333] hover:bg-[#444] text-white text-[13px] font-medium rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 text-red-400 text-[13px] font-semibold rounded transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

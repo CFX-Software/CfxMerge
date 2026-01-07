@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './components/Sidebar';
 import { MergerView } from './views/MergerView';
-import { VehicleConverterView } from './views/VehicleConverterView';
+import { ConverterView } from './views/ConverterView';
 import { SettingsView } from './views/SettingsView';
 import { AuthView } from './views/AuthView';
 import { UpdateDiscordPresence, IsAuthenticated } from '../wailsjs/go/main/App';
@@ -47,7 +47,7 @@ function App() {
       case 'merger':
         return <MergerView key="merger" />;
       case 'converter':
-        return <VehicleConverterView key="converter" />;
+        return <ConverterView key="converter" />;
       case 'settings':
         return <SettingsView key="settings" />;
       default:

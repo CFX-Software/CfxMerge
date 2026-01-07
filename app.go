@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -12,10 +13,11 @@ import (
 
 // App struct
 type App struct {
-	ctx        context.Context
-	scanner    *Scanner
-	discordRPC *DiscordRPC
-	authService *AuthService
+	ctx              context.Context
+	scanner          *Scanner
+	discordRPC       *DiscordRPC
+	authService      *AuthService
+	converterService *ConverterService
 }
 
 // NewApp creates a new App application struct
@@ -34,6 +36,9 @@ func (a *App) startup(ctx context.Context) {
 	// Initialize Discord Rich Presence
 	a.discordRPC = NewDiscordRPC()
 
+	// Initialize Converter Service
+	a.converterService = NewConverterService(ctx, a.authService)
+
 	// Try to load saved API key
 	apiKey, err := a.authService.LoadAPIKey()
 	if err == nil && apiKey != "" {
@@ -43,6 +48,13 @@ func (a *App) startup(ctx context.Context) {
 			if err == nil && authResp != nil && a.discordRPC != nil {
 				a.discordRPC.SetUsername(authResp.User.Name)
 				_ = a.discordRPC.UpdateMergerView()
+			}
+		}()
+
+		// Auto-resume pending conversion jobs
+		go func() {
+			if a.converterService != nil {
+				a.converterService.ResumePendingJobs()
 			}
 		}()
 	}
@@ -183,6 +195,13 @@ func (a *App) SelectFolder() (string, error) {
 	})
 }
 
+// SelectDownloadFolder opens a directory picker for download location
+func (a *App) SelectDownloadFolder() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Download Location",
+	})
+}
+
 // UpdateDiscordPresence updates Discord Rich Presence based on current view
 func (a *App) UpdateDiscordPresence(view string) error {
 	if a.discordRPC == nil {
@@ -261,4 +280,112 @@ func (a *App) Logout() error {
 		return fmt.Errorf("auth service not initialized")
 	}
 	return a.authService.DeleteAPIKey()
+}
+
+// Converter Methods
+
+// SubmitConversion submits URLs for conversion
+func (a *App) SubmitConversion(urls []string) (string, error) {
+	if a.converterService == nil {
+		return "", fmt.Errorf("converter service not initialized - SQLite database may not be available (CGO required)")
+	}
+	return a.converterService.SubmitConversion(urls)
+}
+
+// GetAllConversionJobs returns all conversion jobs
+func (a *App) GetAllConversionJobs() ([]*Job, error) {
+	if a.converterService == nil {
+		return nil, fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.GetAllJobs()
+}
+
+// GetJobResults returns all results for a job
+func (a *App) GetJobResults(jobID string) ([]*Result, error) {
+	if a.converterService == nil {
+		return nil, fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.GetJobResults(jobID)
+}
+
+// CancelConversionJob cancels a running job
+func (a *App) CancelConversionJob(jobID string) error {
+	if a.converterService == nil {
+		return fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.CancelJob(jobID)
+}
+
+// DeleteConversionJob deletes a job
+func (a *App) DeleteConversionJob(jobID string) error {
+	if a.converterService == nil {
+		return fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.DeleteJob(jobID)
+}
+
+// RetryConversionJob retries a failed job
+func (a *App) RetryConversionJob(jobID string) (string, error) {
+	if a.converterService == nil {
+		return "", fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.RetryJob(jobID)
+}
+
+// DownloadConversionResult downloads a conversion result
+func (a *App) DownloadConversionResult(resultID string, downloadPath string) error {
+	if a.converterService == nil {
+		return fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.DownloadResult(resultID, downloadPath)
+}
+
+// SetFiveMResourcesPath sets the FiveM resources folder path
+func (a *App) SetFiveMResourcesPath(path string) error {
+	if a.converterService == nil {
+		return fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.SetFiveMPath(path)
+}
+
+// GetFiveMResourcesPath gets the FiveM resources folder path
+func (a *App) GetFiveMResourcesPath() string {
+	if a.converterService == nil {
+		return ""
+	}
+	return a.converterService.GetFiveMPath()
+}
+
+// ClearConversionHistory clears all conversion jobs
+func (a *App) ClearConversionHistory() error {
+	if a.converterService == nil {
+		return fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.ClearAllHistory()
+}
+
+// OpenFileLocation opens the file location in explorer
+func (a *App) OpenFileLocation(filePath string) error {
+	if filePath == "" {
+		return fmt.Errorf("no file path provided")
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist")
+	}
+
+	// Open file location in explorer/finder
+	var cmd *exec.Cmd
+
+	switch {
+	case strings.Contains(strings.ToLower(os.Getenv("OS")), "windows"):
+		cmd = exec.Command("explorer", "/select,", filePath)
+	default:
+		// For Mac/Linux, just open the directory
+		dir := filepath.Dir(filePath)
+		cmd = exec.Command("open", dir)
+	}
+
+	return cmd.Start()
 }
