@@ -10,6 +10,8 @@ export function ClearConversionHistory():Promise<void>;
 
 export function DeleteConversionJob(arg1:string):Promise<void>;
 
+export function DownloadAllJobResults(arg1:string,arg2:string):Promise<void>;
+
 export function DownloadConversionResult(arg1:string,arg2:string):Promise<void>;
 
 export function FindDuplicates(arg1:Array<main.FileInfo>):Promise<Array<main.DuplicateGroup>>;

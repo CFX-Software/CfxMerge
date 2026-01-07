@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { ConversionJob, ConversionResult } from '../../types/converter';
-import { GetAllConversionJobs, GetJobResults, DeleteConversionJob } from '../../../wailsjs/go/main/App';
+import { GetAllConversionJobs, GetJobResults, DeleteConversionJob, DownloadAllJobResults, GetFiveMResourcesPath, SelectDownloadFolder } from '../../../wailsjs/go/main/App';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { ResultCard } from './ResultCard';
 
@@ -14,6 +14,7 @@ interface JobWithResults {
 export const DownloadsTab = () => {
   const [jobsWithResults, setJobsWithResults] = useState<JobWithResults[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingJobId, setDownloadingJobId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCompletedJobs();
@@ -84,6 +85,33 @@ export const DownloadsTab = () => {
     }
   };
 
+  const handleDownloadAll = async (jobId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    setDownloadingJobId(jobId);
+    try {
+      // Check if FiveM path is set
+      const fivemPath = await GetFiveMResourcesPath();
+      let downloadPath = fivemPath;
+
+      // If no FiveM path, prompt user to select download location
+      if (!downloadPath) {
+        downloadPath = await SelectDownloadFolder();
+        if (!downloadPath) {
+          setDownloadingJobId(null);
+          return; // User cancelled
+        }
+      }
+
+      await DownloadAllJobResults(jobId, downloadPath);
+      loadCompletedJobs();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to download all files');
+    } finally {
+      setDownloadingJobId(null);
+    }
+  };
+
   const formatTime = (timestamp: number) => {
     if (!timestamp) return '';
     const date = new Date(timestamp * 1000);
@@ -140,6 +168,26 @@ export const DownloadsTab = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {job.Status === 'completed' && job.SuccessfulCount > 0 && (
+                    <button
+                      onClick={(e) => handleDownloadAll(job.ID, e)}
+                      disabled={downloadingJobId === job.ID}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f48024]/10 hover:bg-[#f48024]/20 border border-[#f48024]/20 text-[#f48024] text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Download all files"
+                    >
+                      {downloadingJobId === job.ID ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download size={12} />
+                          Download All
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

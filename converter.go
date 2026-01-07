@@ -572,6 +572,66 @@ func (c *ConverterService) extractZip(zipPath, destPath string) error {
 	return nil
 }
 
+// DownloadAllResults downloads all successful results for a job
+func (c *ConverterService) DownloadAllResults(jobID string, downloadPath string) error {
+	if downloadPath == "" {
+		return fmt.Errorf("download path required")
+	}
+
+	results, err := c.db.GetResultsByJobID(jobID)
+	if err != nil {
+		return err
+	}
+
+	// Filter to successful, non-downloaded, non-expired results
+	var toDownload []*Result
+	nowMs := time.Now().UnixMilli()
+	for _, result := range results {
+		// Skip if failed
+		if result.Status != "completed" && result.Status != "success" {
+			continue
+		}
+		// Skip if already downloaded
+		if result.Downloaded {
+			continue
+		}
+		// Skip if expired
+		if result.ExpiresAt > 0 && nowMs > result.ExpiresAt {
+			continue
+		}
+		toDownload = append(toDownload, result)
+	}
+
+	if len(toDownload) == 0 {
+		return fmt.Errorf("no files available to download")
+	}
+
+	// Download each result
+	successCount := 0
+	failCount := 0
+	for _, result := range toDownload {
+		err := c.DownloadResult(result.ID, downloadPath)
+		if err != nil {
+			failCount++
+			continue
+		}
+		successCount++
+	}
+
+	// Emit completion event
+	runtime.EventsEmit(c.ctx, "converter:download_all_complete", map[string]interface{}{
+		"success": successCount,
+		"failed":  failCount,
+		"total":   len(toDownload),
+	})
+
+	if failCount > 0 {
+		return fmt.Errorf("downloaded %d/%d files (%d failed)", successCount, len(toDownload), failCount)
+	}
+
+	return nil
+}
+
 // SetFiveMPath sets the FiveM resources folder
 func (c *ConverterService) SetFiveMPath(path string) error {
 	c.mu.Lock()

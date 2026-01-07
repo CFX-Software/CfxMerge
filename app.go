@@ -389,3 +389,11 @@ func (a *App) OpenFileLocation(filePath string) error {
 
 	return cmd.Start()
 }
+
+// DownloadAllJobResults downloads all results for a job
+func (a *App) DownloadAllJobResults(jobID string, downloadPath string) error {
+	if a.converterService == nil {
+		return fmt.Errorf("converter service not initialized")
+	}
+	return a.converterService.DownloadAllResults(jobID, downloadPath)
+}

@@ -18,6 +18,10 @@ export function DeleteConversionJob(arg1) {
   return window['go']['main']['App']['DeleteConversionJob'](arg1);
 }
 
+export function DownloadAllJobResults(arg1, arg2) {
+  return window['go']['main']['App']['DownloadAllJobResults'](arg1, arg2);
+}
+
 export function DownloadConversionResult(arg1, arg2) {
   return window['go']['main']['App']['DownloadConversionResult'](arg1, arg2);
 }
