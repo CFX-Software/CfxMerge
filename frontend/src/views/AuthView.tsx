@@ -99,7 +99,7 @@ export const AuthView = ({ onAuthSuccess }: AuthViewProps) => {
           <p className="text-center text-[11px] text-[#666] mt-3">
             Don't have an account?{' '}
             <button
-              onClick={() => BrowserOpenURL('https://cfx.software/auth/signin')}
+              onClick={() => BrowserOpenURL('https://www.cfx.software/login')}
               className="text-[#f48024] hover:underline"
             >
               Sign up for free
