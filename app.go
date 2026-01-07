@@ -15,6 +15,7 @@ type App struct {
 	ctx        context.Context
 	scanner    *Scanner
 	discordRPC *DiscordRPC
+	authService *AuthService
 }
 
 // NewApp creates a new App application struct
@@ -26,6 +27,19 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	// Initialize Auth Service
+	a.authService = NewAuthService()
+
+	// Try to load saved API key
+	apiKey, err := a.authService.LoadAPIKey()
+	if err == nil && apiKey != "" {
+		// Validate in background
+		go func() {
+			_, _ = a.authService.ValidateAPIKey()
+		}()
+	}
+
 	// Initialize Discord Rich Presence
 	a.discordRPC = NewDiscordRPC()
 }
@@ -181,4 +195,61 @@ func (a *App) UpdateDiscordPresence(view string) error {
 	default:
 		return a.discordRPC.UpdateMergerView()
 	}
+}
+
+// SaveAPIKey saves and validates the API key
+func (a *App) SaveAPIKey(apiKey string) error {
+	if a.authService == nil {
+		return fmt.Errorf("auth service not initialized")
+	}
+
+	// Save to secure storage
+	if err := a.authService.SaveAPIKey(apiKey); err != nil {
+		return err
+	}
+
+	// Validate with server
+	_, err := a.authService.ValidateAPIKey()
+	return err
+}
+
+// GetAuthStatus returns the current authentication status
+func (a *App) GetAuthStatus() (*AuthResponse, error) {
+	if a.authService == nil {
+		return nil, fmt.Errorf("auth service not initialized")
+	}
+
+	// Try cache first
+	if cached := a.authService.GetCachedUser(); cached != nil {
+		return cached, nil
+	}
+
+	// Load API key
+	apiKey, err := a.authService.LoadAPIKey()
+	if err != nil {
+		return nil, err
+	}
+
+	if apiKey == "" {
+		return nil, fmt.Errorf("not authenticated")
+	}
+
+	// Validate
+	return a.authService.ValidateAPIKey()
+}
+
+// IsAuthenticated checks if user is authenticated
+func (a *App) IsAuthenticated() bool {
+	if a.authService == nil {
+		return false
+	}
+	return a.authService.IsAuthenticated()
+}
+
+// Logout removes the saved API key
+func (a *App) Logout() error {
+	if a.authService == nil {
+		return fmt.Errorf("auth service not initialized")
+	}
+	return a.authService.DeleteAPIKey()
 }

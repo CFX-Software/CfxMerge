@@ -16,7 +16,8 @@
       "Bash(dir:*)",
       "Bash(findstr:*)",
       "Bash(wails build:*)",
-      "Bash(go get:*)"
+      "Bash(go get:*)",
+      "Bash(git push:*)"
     ]
   }
 }

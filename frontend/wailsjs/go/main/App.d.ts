@@ -6,6 +6,14 @@ export function CancelScan():Promise<void>;
 
 export function FindDuplicates(arg1:Array<main.FileInfo>):Promise<Array<main.DuplicateGroup>>;
 
+export function GetAuthStatus():Promise<main.AuthResponse>;
+
+export function IsAuthenticated():Promise<boolean>;
+
+export function Logout():Promise<void>;
+
+export function SaveAPIKey(arg1:string):Promise<void>;
+
 export function ScanDirectory(arg1:string):Promise<Array<main.FileInfo>>;
 
 export function SelectFolder():Promise<string>;

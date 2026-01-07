@@ -1,18 +1,35 @@
-import { useState } from 'react';
-import { Key, Crown, Infinity, Shield, Zap, FolderSync, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Key, Crown, Infinity, Shield, Zap, FolderSync, Download, LogOut } from 'lucide-react';
+import { GetAuthStatus, Logout } from '../../wailsjs/go/main/App';
+import { main } from '../../wailsjs/go/models';
 
 export const SettingsView = () => {
-  const [apiKey, setApiKey] = useState('');
-  const [isVerified, setIsVerified] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [authData, setAuthData] = useState<main.AuthResponse | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleVerify = () => {
-    if (apiKey.startsWith('cfxm-')) {
-      setIsVerifying(true);
-      setTimeout(() => {
-        setIsVerified(true);
-        setIsVerifying(false);
-      }, 1000);
+  useEffect(() => {
+    loadAuthStatus();
+  }, []);
+
+  const loadAuthStatus = async () => {
+    try {
+      const data = await GetAuthStatus();
+      setAuthData(data);
+    } catch (err) {
+      console.error('Failed to load auth status:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to log out?')) {
+      try {
+        await Logout();
+        window.location.reload();
+      } catch (err) {
+        console.error('Logout failed:', err);
+      }
     }
   };
 
@@ -27,54 +44,42 @@ export const SettingsView = () => {
       <div className="flex-1 overflow-y-auto px-8 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
 
-          {/* API Key Section */}
-          {!isVerified ? (
-            <div className="p-6 rounded-lg border border-[#333] bg-[#222]">
-              <div className="flex items-center gap-3 mb-4">
-                <Key size={20} className="text-[#f48024]" />
-                <h2 className="text-[16px] font-semibold text-white">API Authentication</h2>
-              </div>
-              <p className="text-[12px] text-[#888] mb-4">
-                Enter your CFX Merge API key to unlock premium features
-              </p>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="cfxm-xxxx-xxxx-xxxx-xxxx"
-                  className="flex-1 bg-[#1a1a1a] border border-[#333] rounded px-4 py-3 text-[13px] text-white placeholder:text-[#555] focus:border-[#f48024] outline-none transition-colors font-mono"
-                />
-                <button
-                  onClick={handleVerify}
-                  disabled={!apiKey.startsWith('cfxm-') || isVerifying}
-                  className="px-6 py-3 bg-[#f48024] hover:bg-[#f48024]/90 disabled:bg-[#333] disabled:cursor-not-allowed text-white text-[13px] font-semibold rounded transition-colors"
-                >
-                  {isVerifying ? 'Verifying...' : 'Verify'}
-                </button>
-              </div>
+          {/* User Profile Card */}
+          {loading ? (
+            <div className="p-6 rounded-lg border border-[#333] bg-[#222] flex items-center justify-center">
+              <div className="w-8 h-8 border-3 border-[#333] border-t-[#f48024] rounded-full animate-spin" />
             </div>
-          ) : (
-            /* User Profile Card - Animated */
-            <div className="p-6 rounded-lg border border-[#f48024]/20 bg-gradient-to-br from-[#f48024]/5 to-transparent animate-in fade-in slide-in-from-top duration-500">
+          ) : authData ? (
+            <div className="p-6 rounded-lg border border-[#f48024]/20 bg-gradient-to-br from-[#f48024]/5 to-transparent">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-lg bg-[#f48024]/10 border border-[#f48024]/20 flex items-center justify-center">
-                    <Crown size={28} className="text-[#f48024]" />
-                  </div>
+                  {authData.user.image ? (
+                    <img
+                      src={authData.user.image}
+                      alt={authData.user.name}
+                      className="w-16 h-16 rounded-lg border border-[#f48024]/20"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-[#f48024]/10 border border-[#f48024]/20 flex items-center justify-center">
+                      <Crown size={28} className="text-[#f48024]" />
+                    </div>
+                  )}
                   <div>
-                    <h2 className="text-[20px] font-semibold text-white mb-1">Vexoa</h2>
+                    <h2 className="text-[20px] font-semibold text-white mb-1">{authData.user.name}</h2>
                     <div className="flex items-center gap-2">
-                      <Shield size={14} className="text-emerald-500" />
-                      <span className="text-[12px] text-emerald-400 font-medium">Premium Account</span>
+                      <Shield size={14} className={authData.stats.isPremium ? 'text-emerald-500' : 'text-[#666]'} />
+                      <span className={`text-[12px] font-medium ${authData.stats.isPremium ? 'text-emerald-400' : 'text-[#888]'}`}>
+                        {authData.stats.accountTier.charAt(0).toUpperCase() + authData.stats.accountTier.slice(1)} Account
+                      </span>
                     </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => setIsVerified(false)}
-                  className="text-[11px] text-[#666] hover:text-[#aaa] transition-colors"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[11px] font-medium rounded transition-colors"
                 >
-                  Disconnect
+                  <LogOut size={12} />
+                  Logout
                 </button>
               </div>
 
@@ -84,25 +89,25 @@ export const SettingsView = () => {
                     <Infinity size={16} className="text-[#f48024]" />
                     <span className="text-[11px] text-[#666] uppercase tracking-wider">Credits</span>
                   </div>
-                  <p className="text-[18px] font-semibold text-white">Unlimited</p>
+                  <p className="text-[18px] font-semibold text-white">{authData.stats.credits}</p>
                 </div>
                 <div className="p-4 rounded bg-[#222] border border-[#333]">
                   <div className="flex items-center gap-2 mb-1">
                     <Zap size={16} className="text-emerald-500" />
                     <span className="text-[11px] text-[#666] uppercase tracking-wider">Conversions</span>
                   </div>
-                  <p className="text-[18px] font-semibold text-white">10,952</p>
+                  <p className="text-[18px] font-semibold text-white">{authData.stats.conversions.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded bg-[#222] border border-[#333]">
                   <div className="flex items-center gap-2 mb-1">
                     <Download size={16} className="text-blue-500" />
                     <span className="text-[11px] text-[#666] uppercase tracking-wider">Downloads</span>
                   </div>
-                  <p className="text-[18px] font-semibold text-white">2,341</p>
+                  <p className="text-[18px] font-semibold text-white">{authData.stats.downloads.toLocaleString()}</p>
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Merger Settings */}
           <div className="p-6 rounded-lg border border-[#333] bg-[#222]">

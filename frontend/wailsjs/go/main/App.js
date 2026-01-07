@@ -10,6 +10,22 @@ export function FindDuplicates(arg1) {
   return window['go']['main']['App']['FindDuplicates'](arg1);
 }
 
+export function GetAuthStatus() {
+  return window['go']['main']['App']['GetAuthStatus']();
+}
+
+export function IsAuthenticated() {
+  return window['go']['main']['App']['IsAuthenticated']();
+}
+
+export function Logout() {
+  return window['go']['main']['App']['Logout']();
+}
+
+export function SaveAPIKey(arg1) {
+  return window['go']['main']['App']['SaveAPIKey'](arg1);
+}
+
 export function ScanDirectory(arg1) {
   return window['go']['main']['App']['ScanDirectory'](arg1);
 }
