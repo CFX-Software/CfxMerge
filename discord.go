@@ -15,6 +15,7 @@ const (
 type DiscordRPC struct {
 	enabled   bool
 	startTime time.Time
+	username  string
 }
 
 // NewDiscordRPC creates and initializes Discord RPC
@@ -35,15 +36,25 @@ func NewDiscordRPC() *DiscordRPC {
 	return rpc
 }
 
+// SetUsername sets the username for Discord RPC
+func (d *DiscordRPC) SetUsername(username string) {
+	d.username = username
+}
+
 // UpdateMergerView updates presence for Merger tab
 func (d *DiscordRPC) UpdateMergerView() error {
 	if !d.enabled {
 		return nil
 	}
 
+	state := "Managing FiveM assets"
+	if d.username != "" {
+		state = "Logged in as " + d.username
+	}
+
 	return client.SetActivity(client.Activity{
 		Details:    "Merging Resources",
-		State:      "Managing FiveM assets",
+		State:      state,
 		LargeImage: largeImage,
 		LargeText:  "CFX Merge",
 		Timestamps: &client.Timestamps{

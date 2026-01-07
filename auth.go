@@ -27,6 +27,25 @@ type User struct {
 	DiscordID string `json:"discordId"`
 }
 
+// GetDiscordID returns the Discord ID, parsing from avatar URL if needed
+func (u *User) GetDiscordID() string {
+	if u.DiscordID != "" {
+		return u.DiscordID
+	}
+
+	// Parse from avatar URL: https://cdn.discordapp.com/avatars/627622261490319360/...
+	if u.Image != "" && strings.Contains(u.Image, "cdn.discordapp.com/avatars/") {
+		parts := strings.Split(u.Image, "/")
+		for i, part := range parts {
+			if part == "avatars" && i+1 < len(parts) {
+				return parts[i+1]
+			}
+		}
+	}
+
+	return ""
+}
+
 // Stats represents user usage statistics
 type Stats struct {
 	Conversions          int    `json:"conversions"`

@@ -31,17 +31,21 @@ func (a *App) startup(ctx context.Context) {
 	// Initialize Auth Service
 	a.authService = NewAuthService()
 
+	// Initialize Discord Rich Presence
+	a.discordRPC = NewDiscordRPC()
+
 	// Try to load saved API key
 	apiKey, err := a.authService.LoadAPIKey()
 	if err == nil && apiKey != "" {
-		// Validate in background
+		// Validate in background and update Discord RPC
 		go func() {
-			_, _ = a.authService.ValidateAPIKey()
+			authResp, err := a.authService.ValidateAPIKey()
+			if err == nil && authResp != nil && a.discordRPC != nil {
+				a.discordRPC.SetUsername(authResp.User.Name)
+				_ = a.discordRPC.UpdateMergerView()
+			}
 		}()
 	}
-
-	// Initialize Discord Rich Presence
-	a.discordRPC = NewDiscordRPC()
 }
 
 // shutdown is called when the app is shutting down
@@ -209,7 +213,12 @@ func (a *App) SaveAPIKey(apiKey string) error {
 	}
 
 	// Validate with server
-	_, err := a.authService.ValidateAPIKey()
+	authResp, err := a.authService.ValidateAPIKey()
+	if err == nil && authResp != nil && a.discordRPC != nil {
+		// Update Discord RPC with username
+		a.discordRPC.SetUsername(authResp.User.Name)
+		_ = a.discordRPC.UpdateMergerView()
+	}
 	return err
 }
 
