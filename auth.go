@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,11 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/zalando/go-keyring"
 )
 
 const (
-	apiBaseURL     = "https://adamant-deer-971.convex.site/api/v1"
+	apiBaseURL     = "https://api.cfx.software/api/v1"
 	serviceName    = "CFXMerge"
 	apiKeyAccount  = "api_key"
 	cacheDuration  = 5 * time.Minute // Cache user data for 5 minutes
@@ -83,6 +85,7 @@ type AuthResponse struct {
 
 // AuthService handles authentication and secure API key storage
 type AuthService struct {
+	ctx           context.Context
 	mu            sync.RWMutex
 	apiKey        string
 	cachedData    *AuthResponse
@@ -91,8 +94,9 @@ type AuthService struct {
 }
 
 // NewAuthService creates a new authentication service
-func NewAuthService() *AuthService {
+func NewAuthService(ctx context.Context) *AuthService {
 	return &AuthService{
+		ctx:        ctx,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
@@ -101,6 +105,21 @@ func NewAuthService() *AuthService {
 			},
 		},
 	}
+}
+
+// handleAuthFailure centralizes auth failure handling - auto logout and notify UI
+func (a *AuthService) handleAuthFailure(reason string) {
+	// Delete API key from keyring
+	a.DeleteAPIKey()
+
+	// Clear in-memory cache
+	a.mu.Lock()
+	a.apiKey = ""
+	a.cachedData = nil
+	a.mu.Unlock()
+
+	// Emit event to force UI logout
+	runtime.EventsEmit(a.ctx, "auth:failed", reason)
 }
 
 // SaveAPIKey securely stores the API key in OS keyring
@@ -198,7 +217,9 @@ func (a *AuthService) ValidateAPIKey() (*AuthResponse, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 {
-		return nil, fmt.Errorf("invalid API key")
+		// Centralized auth failure handling - auto logout
+		a.handleAuthFailure("API key is invalid or expired")
+		return nil, fmt.Errorf("authentication failed - please login again")
 	}
 
 	if resp.StatusCode != 200 {

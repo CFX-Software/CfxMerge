@@ -1,4 +1,4 @@
-import { Map, Car, Settings as SettingsIcon, Terminal, Database } from 'lucide-react';
+import { GitMerge, RefreshCw, Settings as SettingsIcon, Terminal, Database } from 'lucide-react';
 
 type Tab = 'merger' | 'converter' | 'settings';
 
@@ -9,25 +9,29 @@ interface SidebarProps {
 
 export const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
   const tabs = [
-    { id: 'merger' as Tab, label: 'Merger', icon: Map },
-    { id: 'converter' as Tab, label: 'Converter', icon: Car },
+    { id: 'merger' as Tab, label: 'Merger', icon: GitMerge },
+    { id: 'converter' as Tab, label: 'Converter', icon: RefreshCw },
     { id: 'settings' as Tab, label: 'Settings', icon: SettingsIcon },
   ];
 
   return (
     <div className="w-64 h-full flex flex-col bg-[#121212] border-r border-[#27272a]">
       {/* Header */}
-      <div className="px-6 py-10">
-        <h1 className="text-[28px] font-semibold text-white leading-none tracking-tight">
-          CFX <span className="text-[#f48024]">MERGE</span>
-        </h1>
-        <div className="text-[10px] text-[#52525b] font-medium tracking-widest uppercase mt-1">
-          Merging Engine v1.4
+      <div className="px-6 py-6 border-b border-[#27272a]">
+        <div className="flex items-center gap-3">
+          <img
+            src="https://cdn.buymeacoffee.com/uploads/profile_pictures/2025/12/pXd1A10zSjYmIY9a.png@300w_0e.webp"
+            alt="CFX Logo"
+            className="w-12 h-12 rounded-lg shadow-lg"
+          />
+          <h1 className="text-[22px] font-bold text-white leading-none tracking-tight">
+            CFX <span className="text-[#f48024]">MERGE</span>
+          </h1>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4">
+      <nav className="flex-1 px-4 pt-6">
         <div className="mb-8">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-[#52525b] mb-3 px-2">Applications</div>
           <div className="space-y-2">
@@ -71,10 +75,13 @@ export const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
       </nav>
 
       {/* Footer */}
-      <div className="p-6">
-        <div className="flex items-center gap-2 px-3 py-2 rounded border border-[#27272a] bg-[#18181b]">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-[11px] font-medium text-[#a1a1aa]">System Online</span>
+      <div className="p-6 border-t border-[#27272a] bg-[#0a0a0a]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[12px] font-medium text-[#a1a1aa]">Online</span>
+          </div>
+          <span className="text-[11px] font-semibold text-[#71717a] tracking-wider">v1.0</span>
         </div>
       </div>
     </div>

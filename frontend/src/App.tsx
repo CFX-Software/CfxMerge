@@ -5,7 +5,8 @@ import { MergerView } from './views/MergerView';
 import { ConverterView } from './views/ConverterView';
 import { SettingsView } from './views/SettingsView';
 import { AuthView } from './views/AuthView';
-import { UpdateDiscordPresence, IsAuthenticated } from '../wailsjs/go/main/App';
+import { UpdateDiscordPresence, IsAuthenticated, Logout } from '../wailsjs/go/main/App';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 import './style.css';
 
 type Tab = 'merger' | 'converter' | 'settings';
@@ -29,6 +30,52 @@ function App() {
       });
   }, []);
 
+  // Listen for authentication failures
+  useEffect(() => {
+    const unsubscribe = EventsOn('auth:failed', async (message: string) => {
+      console.error('Authentication failed:', message);
+
+      // Force logout
+      try {
+        await Logout();
+      } catch (err) {
+        console.error('Logout failed:', err);
+      }
+
+      // Update UI state
+      setIsAuthenticated(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Periodic authentication validation (every 5 minutes)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const validateAuth = async () => {
+      try {
+        const authenticated = await IsAuthenticated();
+        if (!authenticated) {
+          console.warn('Periodic auth check failed - logging out');
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        console.error('Periodic auth check error:', err);
+        // Don't logout on network errors, only on explicit auth failures
+      }
+    };
+
+    // Run validation every 5 minutes
+    const interval = setInterval(validateAuth, 5 * 60 * 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
+
   // Update Discord Rich Presence when tab changes
   useEffect(() => {
     if (isAuthenticated) {
@@ -40,6 +87,7 @@ function App() {
 
   const handleAuthSuccess = () => {
     setIsAuthenticated(true);
+    setActiveTab('settings'); // Take user to Settings page after login
   };
 
   const renderView = () => {
@@ -83,10 +131,10 @@ function App() {
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.02 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15, ease: 'easeInOut' }}
           className="flex-1 overflow-hidden"
         >
           {renderView()}

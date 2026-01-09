@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -98,6 +101,22 @@ func IsRSC7(filePath string) (bool, error) {
 	const magicRSC7 = 0x37435352
 
 	return magic == magicRSC7, nil
+}
+
+// calculateFileHash computes the SHA256 hash of a file
+func calculateFileHash(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // NewScanner creates a new scanner instance
@@ -378,6 +397,13 @@ func (s *Scanner) worker(wg *sync.WaitGroup, jobs <-chan string, results chan<- 
 			}
 		}
 
+		// Calculate SHA256 hash for duplicate detection
+		hash, err := calculateFileHash(path)
+		if err != nil {
+			// If hash calculation fails, use empty string
+			hash = ""
+		}
+
 		// Create FileInfo
 		fileInfo := FileInfo{
 			Path:        path,
@@ -385,6 +411,7 @@ func (s *Scanner) worker(wg *sync.WaitGroup, jobs <-chan string, results chan<- 
 			Size:        info.Size(),
 			ModTime:     info.ModTime().Format("2006-01-02 15:04:05"),
 			IsEncrypted: isEncrypted,
+			Hash:        hash,
 		}
 
 		results <- fileInfo
@@ -425,9 +452,32 @@ func (s *Scanner) groupDuplicates(files []FileInfo) []DuplicateGroup {
 				}
 			}
 
-			// Group is ready to merge if at least one file is not encrypted
+			// Check if all files are identical (same hash)
+			isIdentical := false
+			if len(groupFiles) > 0 && groupFiles[0].Hash != "" {
+				allSameHash := true
+				firstHash := groupFiles[0].Hash
+				for _, f := range groupFiles {
+					if f.Hash == "" || f.Hash != firstHash {
+						allSameHash = false
+						break
+					}
+				}
+				isIdentical = allSameHash
+			}
+
+			// Determine group status
 			status := "ready"
-			if hasEncrypted {
+			selected := true
+			hasWarnings := hasEncrypted || isIdentical
+			warningCount := 0
+
+			if isIdentical {
+				// Files are identical - block from merging
+				status = "identical"
+				selected = false // Don't auto-select identical files
+				warningCount++
+			} else if hasEncrypted {
 				// Check if ALL files are encrypted
 				allEncrypted := true
 				for _, f := range groupFiles {
@@ -439,6 +489,7 @@ func (s *Scanner) groupDuplicates(files []FileInfo) []DuplicateGroup {
 				if allEncrypted {
 					status = "error" // Cannot merge if all files are encrypted
 				}
+				warningCount++
 			}
 
 			group := DuplicateGroup{
@@ -448,13 +499,9 @@ func (s *Scanner) groupDuplicates(files []FileInfo) []DuplicateGroup {
 				Files:        groupFiles, // Include full file info
 				Paths:        paths,      // Keep for backward compatibility
 				Expanded:     false,
-				Selected:     true, // Auto-select by default
-				HasWarnings:  hasEncrypted,
-				WarningCount: 0,
-			}
-
-			if hasEncrypted {
-				group.WarningCount = 1
+				Selected:     selected,
+				HasWarnings:  hasWarnings,
+				WarningCount: warningCount,
 			}
 
 			duplicates = append(duplicates, group)

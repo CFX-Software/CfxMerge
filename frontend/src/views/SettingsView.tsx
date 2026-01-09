@@ -1,21 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Key, Crown, Infinity, Shield, Zap, FolderSync, Download, LogOut, RefreshCw } from 'lucide-react';
-import { GetAuthStatus, Logout } from '../../wailsjs/go/main/App';
+import { Crown, Infinity, Shield, Zap, Download, LogOut, RefreshCw, FolderSync } from 'lucide-react';
+import { GetAuthStatus, Logout, GetSettings, SetHardwareAcceleration, SetLaunchOnStartup } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 
 export const SettingsView = () => {
   const [authData, setAuthData] = useState<main.AuthResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [hardwareAcceleration, setHardwareAcceleration] = useState(true);
+  const [launchOnStartup, setLaunchOnStartup] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
   useEffect(() => {
     loadAuthStatus();
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const settings = await GetSettings();
+      setHardwareAcceleration(settings.hardwareAcceleration);
+      setLaunchOnStartup(settings.launchOnStartup);
+    } catch (err) {
+      console.error('Failed to load settings:', err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   // Cooldown timer
   useEffect(() => {
@@ -40,8 +57,11 @@ export const SettingsView = () => {
     try {
       const data = await GetAuthStatus();
       setAuthData(data);
-    } catch (err) {
+      setError(null);
+    } catch (err: any) {
       console.error('Failed to load auth status:', err);
+      setError(err?.message || 'Failed to load user data');
+      setAuthData(null);
     } finally {
       setLoading(false);
     }
@@ -79,6 +99,26 @@ export const SettingsView = () => {
     }
   };
 
+  const handleHardwareAccelerationToggle = async () => {
+    const newValue = !hardwareAcceleration;
+    try {
+      await SetHardwareAcceleration(newValue);
+      setHardwareAcceleration(newValue);
+    } catch (err) {
+      console.error('Failed to set hardware acceleration:', err);
+    }
+  };
+
+  const handleLaunchOnStartupToggle = async () => {
+    const newValue = !launchOnStartup;
+    try {
+      await SetLaunchOnStartup(newValue);
+      setLaunchOnStartup(newValue);
+    } catch (err) {
+      console.error('Failed to set launch on startup:', err);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#1a1a1a] text-[#fafafa]">
       {/* Header */}
@@ -94,6 +134,34 @@ export const SettingsView = () => {
           {loading ? (
             <div className="p-6 rounded-lg border border-[#333] bg-[#222] flex items-center justify-center">
               <div className="w-8 h-8 border-3 border-[#333] border-t-[#f48024] rounded-full animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="p-6 rounded-lg border border-red-500/20 bg-red-500/5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                  <Shield size={24} className="text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-semibold text-white mb-1">Authentication Failed</h3>
+                  <p className="text-[12px] text-red-400">{error}</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={loadAuthStatus}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[#f48024]/10 hover:bg-[#f48024]/20 border border-[#f48024]/20 text-[#f48024] text-[12px] font-medium rounded transition-colors"
+                >
+                  <RefreshCw size={14} />
+                  Retry
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[12px] font-medium rounded transition-colors"
+                >
+                  <LogOut size={14} />
+                  Logout & Re-login
+                </button>
+              </div>
             </div>
           ) : authData ? (
             <div className={`p-6 rounded-lg border border-[#f48024]/20 bg-gradient-to-br from-[#f48024]/5 to-transparent transition-all duration-500 ${refreshing ? 'scale-[0.99] opacity-90' : 'scale-100 opacity-100'}`}>
@@ -177,79 +245,35 @@ export const SettingsView = () => {
               <h2 className="text-[16px] font-semibold text-white">Merger Settings</h2>
             </div>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between opacity-60">
                 <div>
                   <p className="text-[13px] text-white font-medium">Auto-resolve conflicts</p>
                   <p className="text-[11px] text-[#666]">Automatically merge compatible duplicates</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                <label className="relative inline-flex items-center cursor-not-allowed">
+                  <input type="checkbox" className="sr-only peer" checked disabled />
                   <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
                 </label>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between opacity-60">
                 <div>
                   <p className="text-[13px] text-white font-medium">Create backups</p>
                   <p className="text-[11px] text-[#666]">Backup files before merging</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                <label className="relative inline-flex items-center cursor-not-allowed">
+                  <input type="checkbox" className="sr-only peer" checked disabled />
                   <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
                 </label>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between opacity-60">
                 <div>
                   <p className="text-[13px] text-white font-medium">Show file previews</p>
                   <p className="text-[11px] text-[#666]">Display file contents before merging</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
+                <label className="relative inline-flex items-center cursor-not-allowed">
+                  <input type="checkbox" className="sr-only peer" disabled />
                   <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
                 </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Converter Settings */}
-          <div className="p-6 rounded-lg border border-[#333] bg-[#222]">
-            <div className="flex items-center gap-3 mb-4">
-              <Zap size={20} className="text-[#f48024]" />
-              <h2 className="text-[16px] font-semibold text-white">Converter Settings</h2>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] text-white font-medium">Auto-optimize resources</p>
-                  <p className="text-[11px] text-[#666]">Automatically compress and optimize converted files</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
-                </label>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] text-white font-medium">Keep original files</p>
-                  <p className="text-[11px] text-[#666]">Preserve original files after conversion</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
-                </label>
-              </div>
-              <div>
-                <label className="text-[13px] text-white font-medium block mb-2">Download directory</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value="C:\Users\Vexoa\Downloads\CFX"
-                    readOnly
-                    className="flex-1 bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-[12px] text-[#aaa] font-mono"
-                  />
-                  <button className="px-4 py-2 bg-[#333] hover:bg-[#444] text-white text-[12px] font-medium rounded transition-colors">
-                    Change
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -264,8 +288,14 @@ export const SettingsView = () => {
                   <p className="text-[11px] text-[#666]">Use GPU for faster processing</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={hardwareAcceleration}
+                    onChange={handleHardwareAccelerationToggle}
+                    disabled={settingsLoading}
+                  />
+                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024] peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                 </label>
               </div>
               <div className="flex items-center justify-between">
@@ -274,8 +304,14 @@ export const SettingsView = () => {
                   <p className="text-[11px] text-[#666]">Start CFX Merge when Windows starts</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024]"></div>
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={launchOnStartup}
+                    onChange={handleLaunchOnStartupToggle}
+                    disabled={settingsLoading}
+                  />
+                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f48024] peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                 </label>
               </div>
             </div>

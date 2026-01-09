@@ -53,6 +53,7 @@ export const MergerView = () => {
   const [showFXAP, setShowFXAP] = useState<boolean>(true);
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Set up event listeners for scan progress
   useEffect(() => {
@@ -166,19 +167,74 @@ export const MergerView = () => {
     setSelectedFiles(new Set());
   };
 
-  // Filter duplicates based on FXAP toggle
-  const filteredDuplicates = showFXAP ? duplicates : duplicates.filter(d => d.status !== 'error');
+  // Filter duplicates based on FXAP toggle, search query, and exclude identical files
+  const filteredDuplicates = duplicates
+    .filter(d => {
+      // Always hide identical files
+      if (d.status === 'identical') return false;
+
+      // Filter by FXAP toggle
+      if (!showFXAP && d.status === 'error') return false;
+
+      // Filter by search query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const nameMatch = d.name.toLowerCase().includes(query);
+        const pathMatch = d.files.some(f => f.path.toLowerCase().includes(query));
+        return nameMatch || pathMatch;
+      }
+
+      return true;
+    });
 
   // Calculate stats
+  const allScannedFiles = scanState.results?.files || [];
+  const allErrors = scanState.results?.errors || [];
+
+  // Count all files in duplicate groups
   const totalFiles = duplicates.flatMap(d => d.files).length;
-  const encryptedCount = scanState.results?.files.filter(f => f.isEncrypted).length || 0; // Count ALL FXAP files from scan, not just duplicates
+
+  // Count FXAP encrypted files
+  const encryptedCount = scanState.results?.files.filter(f => f.isEncrypted).length || 0; // ALL FXAP in scan
   const encryptedInDuplicates = duplicates.flatMap(d => d.files).filter(f => f.isEncrypted).length;
-  const readyCount = totalFiles - encryptedInDuplicates;
-  const warningCount = scanState.results?.stats.warningCount || 0;
-  const baseErrorCount = scanState.results?.stats.errorCount || 0;
-  const errorCount = baseErrorCount; // Base errors already includes FXAP from scanner
-  const encryptedGroupCount = duplicates.filter(d => d.hasWarnings).length;
+
+  // Count identical file groups
+  const identicalGroupCount = duplicates.filter(d => d.status === 'identical').length;
+  const identicalFilesCount = duplicates
+    .filter(d => d.status === 'identical')
+    .flatMap(d => d.files).length;
+
+  // Count error types from scanner
+  const permissionErrors = allErrors.filter(e => e.type === 'permission').length;
+  const corruptErrors = allErrors.filter(e => e.type === 'corrupt').length;
+  const namingErrors = allErrors.filter(e => e.type === 'naming').length;
+  const encryptedErrors = allErrors.filter(e => e.type === 'encrypted').length;
+
+  // Calculate files ready to merge (non-encrypted, non-identical)
+  const readyFiles = duplicates
+    .filter(d => d.status === 'ready')
+    .flatMap(d => d.files.filter(f => !f.isEncrypted));
+  const readyCount = readyFiles.length;
+
+  // Calculate size ONLY for files ready to merge
+  const mergeableSize = readyFiles.reduce((sum, file) => sum + file.size, 0);
+
+  // Total warnings (encrypted in duplicates + identical files)
+  const warningCount = encryptedInDuplicates + identicalFilesCount;
+
+  // Total errors from scanner
+  const errorCount = encryptedErrors + permissionErrors + corruptErrors + namingErrors;
+
   const selectedCount = selectedFiles.size;
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  };
 
   // Idle state: Folder selection
   if (scanState.status === 'idle') {
@@ -258,9 +314,19 @@ export const MergerView = () => {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666]" />
               <input
                 type="text"
-                placeholder="Search"
+                placeholder="Search duplicates by name or path..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-[#222] border border-[#333] rounded px-9 py-2 text-[13px] text-white placeholder:text-[#666] focus:border-[#f48024] outline-none transition-colors"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] hover:text-white transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -288,16 +354,10 @@ export const MergerView = () => {
               )}
             </div>
             <button
-              onClick={selectAll}
+              onClick={selectedCount > 0 ? deselectAll : selectAll}
               className="px-4 py-2 bg-[#252525] hover:bg-[#2a2a2a] border border-[#333] text-white text-[12px] font-medium rounded transition-colors"
             >
-              Select all ({readyCount})
-            </button>
-            <button
-              onClick={deselectAll}
-              className="px-4 py-2 bg-[#252525] hover:bg-[#2a2a2a] border border-[#333] text-white text-[12px] font-medium rounded transition-colors"
-            >
-              Deselect all
+              {selectedCount > 0 ? 'Deselect all' : `Select all (${readyCount})`}
             </button>
             <button
               onClick={handleReset}
@@ -313,11 +373,27 @@ export const MergerView = () => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-[#2a2a2a]">
-            <h2 className="text-[18px] font-semibold text-white">Detected duplicates</h2>
+            <h2 className="text-[18px] font-semibold text-white">
+              {searchQuery ? 'Search Results' : 'Detected duplicates'}
+            </h2>
             <p className="text-[12px] text-[#888] mt-1">
-              Found {filteredDuplicates.length} duplicate groups in {scanState.results?.stats.totalFiles} files
-              {!showFXAP && encryptedGroupCount > 0 && (
-                <span className="text-[#f48024] ml-1">({encryptedGroupCount} FXAP groups hidden)</span>
+              {searchQuery ? (
+                <>
+                  Found {filteredDuplicates.length} matching group{filteredDuplicates.length !== 1 ? 's' : ''} for "{searchQuery}"
+                  {filteredDuplicates.length === 0 && (
+                    <span className="text-[#f48024] ml-1">• Try a different search term</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Found {filteredDuplicates.length} duplicate groups in {scanState.results?.stats.totalFiles} files
+                  {!showFXAP && encryptedCount > 0 && (
+                    <span className="text-[#f48024] ml-1">({encryptedCount} FXAP files hidden)</span>
+                  )}
+                  {identicalGroupCount > 0 && (
+                    <span className="text-yellow-400 ml-1">({identicalGroupCount} identical groups blocked)</span>
+                  )}
+                </>
               )}
             </p>
           </div>
@@ -327,8 +403,21 @@ export const MergerView = () => {
             {filteredDuplicates.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-[14px] text-[#888]">
-                  {duplicates.length === 0 ? 'No duplicates found' : 'No duplicates to show (all filtered)'}
+                  {searchQuery
+                    ? `No results found for "${searchQuery}"`
+                    : duplicates.length === 0
+                      ? 'No duplicates found'
+                      : 'No duplicates to show (all filtered)'
+                  }
                 </p>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-3 text-[12px] text-[#f48024] hover:text-[#f48024]/80 transition-colors"
+                  >
+                    Clear search
+                  </button>
+                )}
               </div>
             ) : (
               filteredDuplicates.map(dup => {
@@ -423,7 +512,12 @@ export const MergerView = () => {
               </button>
 
               <div className="flex items-center gap-4">
-                <span className="text-[12px] text-[#888]">Merger engine: <span className="text-white">Auto</span></span>
+                <div className="text-[12px] text-[#888]">
+                  <span>Merger engine: <span className="text-white">Auto</span></span>
+                  <span className="mx-2">•</span>
+                  <span className="text-emerald-400">{formatFileSize(mergeableSize)}</span>
+                  <span className="text-[#666] ml-1">ready</span>
+                </div>
                 <button
                   onClick={handleReset}
                   className="px-4 py-2 bg-[#333] hover:bg-[#444] text-white text-[12px] font-medium rounded transition-colors"
@@ -436,30 +530,86 @@ export const MergerView = () => {
         </div>
 
         {/* Right Sidebar - Stats */}
-        <div className="w-72 border-l border-[#2a2a2a] bg-[#1f1f1f] p-6 space-y-3">
+        <div className="w-80 border-l border-[#2a2a2a] bg-[#1f1f1f] p-6 space-y-3 overflow-y-auto">
+          {/* Ready to merge */}
           <div className="p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="text-[12px] font-medium text-emerald-400">Ready to merge ({readyCount})</span>
+              <span className="text-[13px] font-semibold text-emerald-400">Ready to merge</span>
+            </div>
+            <div className="space-y-1 ml-4">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] text-emerald-300/80">Files ready</span>
+                <span className="text-[11px] font-medium text-emerald-400">{readyCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] text-emerald-300/80">Total size</span>
+                <span className="text-[11px] font-medium text-emerald-400">{formatFileSize(mergeableSize)}</span>
+              </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-lg border border-red-500/20 bg-red-500/5">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
-              <span className="text-[12px] font-medium text-red-400">Errors ({errorCount})</span>
+          {/* Errors */}
+          {errorCount > 0 && (
+            <div className="p-4 rounded-lg border border-red-500/20 bg-red-500/5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-[13px] font-semibold text-red-400">Errors ({errorCount})</span>
+              </div>
+              <div className="space-y-1.5 ml-4">
+                {encryptedErrors > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-red-300/70">FXAP Encrypted</span>
+                    <span className="text-[10px] font-medium text-red-400">{encryptedErrors}</span>
+                  </div>
+                )}
+                {permissionErrors > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-red-300/70">Access Denied</span>
+                    <span className="text-[10px] font-medium text-red-400">{permissionErrors}</span>
+                  </div>
+                )}
+                {corruptErrors > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-red-300/70">Corrupt Files</span>
+                    <span className="text-[10px] font-medium text-red-400">{corruptErrors}</span>
+                  </div>
+                )}
+                {namingErrors > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-red-300/70">Naming Conflicts</span>
+                    <span className="text-[10px] font-medium text-red-400">{namingErrors}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-[9px] text-red-300/50 mt-2 ml-4 italic">Cannot be processed or merged</p>
             </div>
-            {encryptedCount > 0 && (
-              <p className="text-[10px] text-red-300/60 mt-1">FXAP Encrypted ({encryptedCount})</p>
-            )}
-          </div>
+          )}
 
-          <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              <span className="text-[12px] font-medium text-amber-400">Warnings ({warningCount})</span>
+          {/* Warnings */}
+          {warningCount > 0 && (
+            <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-[13px] font-semibold text-amber-400">Warnings ({warningCount})</span>
+              </div>
+              <div className="space-y-1.5 ml-4">
+                {encryptedInDuplicates > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-amber-300/70">FXAP in Duplicates</span>
+                    <span className="text-[10px] font-medium text-amber-400">{encryptedInDuplicates}</span>
+                  </div>
+                )}
+                {identicalFilesCount > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-amber-300/70">Identical Files (Blocked)</span>
+                    <span className="text-[10px] font-medium text-amber-400">{identicalFilesCount}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-[9px] text-amber-300/50 mt-2 ml-4 italic">Skip these to avoid wasting resources</p>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

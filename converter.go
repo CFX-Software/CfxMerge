@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	apiConvertURL   = "https://adamant-deer-971.convex.site/api/v1/convert"
-	apiJobStatusURL = "https://adamant-deer-971.convex.site/api/v1/job/status"
+	apiConvertURL   = "https://api.cfx.software/api/v1/convert"
+	apiJobStatusURL = "https://api.cfx.software/api/v1/job/status"
 	batchSize       = 20 // Will be 35 later
 	pollInterval    = 3 * time.Second // Poll every 3 seconds
 	pollDelay       = 2 * time.Second // Wait 2 seconds before first poll
@@ -204,6 +204,12 @@ func (c *ConverterService) submitBatchToAPI(apiKey string, urls []string) (*Conv
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 401 {
+		// Emit auth failed event to force logout
+		runtime.EventsEmit(c.ctx, "auth:failed", "Authentication failed - please login again")
+		return nil, fmt.Errorf("authentication failed - please login again")
+	}
+
 	if resp.StatusCode == 429 {
 		return nil, fmt.Errorf("rate limit exceeded")
 	}
@@ -266,6 +272,12 @@ func (c *ConverterService) pollJobStatus(jobID, apiJobID, apiKey string) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		// Emit auth failed event to force logout
+		runtime.EventsEmit(c.ctx, "auth:failed", "Authentication failed - please login again")
+		return fmt.Errorf("authentication failed - please login again")
+	}
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("status check failed: %d", resp.StatusCode)

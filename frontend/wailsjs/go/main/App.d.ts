@@ -24,6 +24,8 @@ export function GetFiveMResourcesPath():Promise<string>;
 
 export function GetJobResults(arg1:string):Promise<Array<main.Result>>;
 
+export function GetSettings():Promise<main.AppSettings>;
+
 export function IsAuthenticated():Promise<boolean>;
 
 export function Logout():Promise<void>;
@@ -41,6 +43,10 @@ export function SelectDownloadFolder():Promise<string>;
 export function SelectFolder():Promise<string>;
 
 export function SetFiveMResourcesPath(arg1:string):Promise<void>;
+
+export function SetHardwareAcceleration(arg1:boolean):Promise<void>;
+
+export function SetLaunchOnStartup(arg1:boolean):Promise<void>;
 
 export function StartScan(arg1:string):Promise<void>;
 

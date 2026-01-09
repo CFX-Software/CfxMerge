@@ -4,6 +4,7 @@ export interface FileInfo {
   size: number;
   modTime: string;
   isEncrypted: boolean;
+  hash: string; // SHA256 hash for detecting identical files
 }
 
 export interface DuplicateGroup {

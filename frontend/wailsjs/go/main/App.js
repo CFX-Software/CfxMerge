@@ -46,6 +46,10 @@ export function GetJobResults(arg1) {
   return window['go']['main']['App']['GetJobResults'](arg1);
 }
 
+export function GetSettings() {
+  return window['go']['main']['App']['GetSettings']();
+}
+
 export function IsAuthenticated() {
   return window['go']['main']['App']['IsAuthenticated']();
 }
@@ -80,6 +84,14 @@ export function SelectFolder() {
 
 export function SetFiveMResourcesPath(arg1) {
   return window['go']['main']['App']['SetFiveMResourcesPath'](arg1);
+}
+
+export function SetHardwareAcceleration(arg1) {
+  return window['go']['main']['App']['SetHardwareAcceleration'](arg1);
+}
+
+export function SetLaunchOnStartup(arg1) {
+  return window['go']['main']['App']['SetLaunchOnStartup'](arg1);
 }
 
 export function StartScan(arg1) {

@@ -3,7 +3,7 @@ import { ChevronDown, File, Check } from 'lucide-react';
 
 interface DuplicateCardProps {
   name: string;
-  status: 'ready' | 'warning' | 'error';
+  status: 'ready' | 'warning' | 'error' | 'identical';
   warningCount?: number;
   files?: string[];
   selected?: boolean;
@@ -24,6 +24,7 @@ export const DuplicateCard = ({
     ready: { text: 'Ready to merge', color: 'text-fivem', bg: 'bg-fivem/10', border: 'border-fivem/20' },
     warning: { text: `Has warnings (${warningCount})`, color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/20' },
     error: { text: 'Error', color: 'text-red-400', bg: 'bg-red-400/10', border: 'border-red-400/20' },
+    identical: { text: 'Identical files - blocked', color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/20' },
   };
 
   const config = statusConfig[status];

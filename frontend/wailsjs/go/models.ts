@@ -16,6 +16,20 @@ export namespace main {
 	        this.currentUsage = source["currentUsage"];
 	    }
 	}
+	export class AppSettings {
+	    hardwareAcceleration: boolean;
+	    launchOnStartup: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hardwareAcceleration = source["hardwareAcceleration"];
+	        this.launchOnStartup = source["launchOnStartup"];
+	    }
+	}
 	export class Limit {
 	    endpoint: string;
 	    requestsPerHour: number;
@@ -120,6 +134,7 @@ export namespace main {
 	    size: number;
 	    modTime: string;
 	    isEncrypted: boolean;
+	    hash: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileInfo(source);
@@ -132,6 +147,7 @@ export namespace main {
 	        this.size = source["size"];
 	        this.modTime = source["modTime"];
 	        this.isEncrypted = source["isEncrypted"];
+	        this.hash = source["hash"];
 	    }
 	}
 	export class DuplicateGroup {

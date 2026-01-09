@@ -30,8 +30,8 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// Initialize Auth Service
-	a.authService = NewAuthService()
+	// Initialize Auth Service with context for event emission
+	a.authService = NewAuthService(ctx)
 
 	// Initialize Discord Rich Presence
 	a.discordRPC = NewDiscordRPC()
@@ -74,6 +74,7 @@ type FileInfo struct {
 	Size        int64  `json:"size"`
 	ModTime     string `json:"modTime"`
 	IsEncrypted bool   `json:"isEncrypted"`
+	Hash        string `json:"hash"` // SHA256 hash for detecting identical files
 }
 
 // DuplicateGroup represents a group of duplicate files
