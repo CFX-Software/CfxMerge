@@ -51,10 +51,11 @@ jobs:
           echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
         shell: pwsh
 
-      - name: Create Release
+      - name: Create Release on Main Repo
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
+          repository: CFX-Software/CfxMerge
           name: CfxMerge ${{ steps.get_version.outputs.version }}
           body: |
             ## CfxMerge v${{ steps.get_version.outputs.version }}
@@ -79,14 +80,14 @@ jobs:
             - WebView2 Runtime (usually pre-installed)
 
             ---
-            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}
+            **Development Repo**: https://github.com/CFX-Software/CfxMerge-Dev
           draft: false
           prerelease: false
           files: |
             build/bin/CfxMerge-amd64-installer.exe
             build/bin/CfxMerge.exe
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

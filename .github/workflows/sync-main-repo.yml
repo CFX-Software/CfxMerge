@@ -1,0 +1,24 @@
+name: Sync to Main Repo
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  sync:
+    name: Sync Code to CFX-Software/CfxMerge
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for proper sync
+
+      - name: Push to Main Repo
+        run: |
+          git remote add main https://x-access-token:${{ secrets.RELEASE_TOKEN }}@github.com/CFX-Software/CfxMerge.git
+          git push main master --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
