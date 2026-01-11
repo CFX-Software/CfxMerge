@@ -34,6 +34,7 @@ export const SettingsView = () => {
     }
   };
 
+
   // Cooldown timer
   useEffect(() => {
     if (!lastRefresh) return;
@@ -87,6 +88,7 @@ export const SettingsView = () => {
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
 
   const canRefresh = cooldownRemaining === 0 && !refreshing;
 
@@ -345,6 +347,7 @@ export const SettingsView = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

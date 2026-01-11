@@ -2,24 +2,60 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/zalando/go-keyring"
 )
 
 const (
-	apiBaseURL     = "https://api.cfx.software/api/v1"
-	serviceName    = "CFXMerge"
-	apiKeyAccount  = "api_key"
-	cacheDuration  = 5 * time.Minute // Cache user data for 5 minutes
+	apiBaseURL        = "https://api.cfx.software/api/v1"
+	serviceName       = "CFXMerge"
+	apiKeyAccount     = "api_key"
+	cacheDuration     = 5 * time.Minute // Cache user data for 5 minutes
+	credentialsFile   = "credentials.enc"
 )
+
+var (
+	dllcrypt32  = syscall.NewLazyDLL("Crypt32.dll")
+	dllkernel32 = syscall.NewLazyDLL("Kernel32.dll")
+
+	procEncryptData = dllcrypt32.NewProc("CryptProtectData")
+	procDecryptData = dllcrypt32.NewProc("CryptUnprotectData")
+	procLocalFree   = dllkernel32.NewProc("LocalFree")
+)
+
+type dataBlob struct {
+	cbData uint32
+	pbData *byte
+}
+
+func newBlob(d []byte) *dataBlob {
+	if len(d) == 0 {
+		return &dataBlob{}
+	}
+	return &dataBlob{
+		pbData: &d[0],
+		cbData: uint32(len(d)),
+	}
+}
+
+func (b *dataBlob) toByteArray() []byte {
+	d := make([]byte, b.cbData)
+	copy(d, (*[1 << 30]byte)(unsafe.Pointer(b.pbData))[:])
+	return d
+}
 
 // User represents the authenticated user
 type User struct {
@@ -122,7 +158,130 @@ func (a *AuthService) handleAuthFailure(reason string) {
 	runtime.EventsEmit(a.ctx, "auth:failed", reason)
 }
 
-// SaveAPIKey securely stores the API key in OS keyring
+// encryptData encrypts data using Windows DPAPI
+func encryptData(data []byte) ([]byte, error) {
+	var outBlob dataBlob
+	r, _, err := procEncryptData.Call(
+		uintptr(unsafe.Pointer(newBlob(data))),
+		0,
+		0,
+		0,
+		0,
+		0,
+		uintptr(unsafe.Pointer(&outBlob)),
+	)
+	if r == 0 {
+		return nil, fmt.Errorf("encryption failed: %v", err)
+	}
+	defer procLocalFree.Call(uintptr(unsafe.Pointer(outBlob.pbData)))
+	return outBlob.toByteArray(), nil
+}
+
+// decryptData decrypts data using Windows DPAPI
+func decryptData(data []byte) ([]byte, error) {
+	var outBlob dataBlob
+	r, _, err := procDecryptData.Call(
+		uintptr(unsafe.Pointer(newBlob(data))),
+		0,
+		0,
+		0,
+		0,
+		0,
+		uintptr(unsafe.Pointer(&outBlob)),
+	)
+	if r == 0 {
+		return nil, fmt.Errorf("decryption failed: %v", err)
+	}
+	defer procLocalFree.Call(uintptr(unsafe.Pointer(outBlob.pbData)))
+	return outBlob.toByteArray(), nil
+}
+
+// getCredentialsFilePath returns the path to the encrypted credentials file
+func (a *AuthService) getCredentialsFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get config dir: %w", err)
+	}
+
+	appConfigDir := filepath.Join(configDir, serviceName)
+	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create config dir: %w", err)
+	}
+
+	return filepath.Join(appConfigDir, credentialsFile), nil
+}
+
+// saveToEncryptedFile saves API key to encrypted file
+func (a *AuthService) saveToEncryptedFile(apiKey string) error {
+	filePath, err := a.getCredentialsFilePath()
+	if err != nil {
+		return err
+	}
+
+	// Encrypt the API key using DPAPI
+	encrypted, err := encryptData([]byte(apiKey))
+	if err != nil {
+		return fmt.Errorf("failed to encrypt API key: %w", err)
+	}
+
+	// Encode to base64 for safe storage
+	encoded := base64.StdEncoding.EncodeToString(encrypted)
+
+	// Write to file
+	if err := os.WriteFile(filePath, []byte(encoded), 0600); err != nil {
+		return fmt.Errorf("failed to write credentials file: %w", err)
+	}
+
+	return nil
+}
+
+// loadFromEncryptedFile loads API key from encrypted file
+func (a *AuthService) loadFromEncryptedFile() (string, error) {
+	filePath, err := a.getCredentialsFilePath()
+	if err != nil {
+		return "", err
+	}
+
+	// Read file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil // File doesn't exist yet
+		}
+		return "", fmt.Errorf("failed to read credentials file: %w", err)
+	}
+
+	// Decode from base64
+	encrypted, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		return "", fmt.Errorf("failed to decode credentials: %w", err)
+	}
+
+	// Decrypt using DPAPI
+	decrypted, err := decryptData(encrypted)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt API key: %w", err)
+	}
+
+	return string(decrypted), nil
+}
+
+// deleteEncryptedFile deletes the encrypted credentials file
+func (a *AuthService) deleteEncryptedFile() error {
+	filePath, err := a.getCredentialsFilePath()
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete credentials file: %w", err)
+	}
+
+	return nil
+}
+
+// SaveAPIKey securely stores the API key in both encrypted file and OS keyring
 func (a *AuthService) SaveAPIKey(apiKey string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -132,11 +291,14 @@ func (a *AuthService) SaveAPIKey(apiKey string) error {
 		return fmt.Errorf("invalid API key format")
 	}
 
-	// Store in OS keyring (Windows Credential Manager)
-	err := keyring.Set(serviceName, apiKeyAccount, apiKey)
-	if err != nil {
-		return fmt.Errorf("failed to save API key: %w", err)
+	// Primary: Save to encrypted file
+	if err := a.saveToEncryptedFile(apiKey); err != nil {
+		return fmt.Errorf("failed to save API key to encrypted file: %w", err)
 	}
+
+	// Backup: Save to OS keyring (Windows Credential Manager)
+	// Don't fail if this errors - file storage is primary
+	_ = keyring.Set(serviceName, apiKeyAccount, apiKey)
 
 	a.apiKey = apiKey
 	// Clear cache when API key changes
@@ -146,7 +308,7 @@ func (a *AuthService) SaveAPIKey(apiKey string) error {
 	return nil
 }
 
-// LoadAPIKey retrieves the API key from OS keyring
+// LoadAPIKey retrieves the API key from encrypted file (primary) or OS keyring (backup)
 func (a *AuthService) LoadAPIKey() (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -156,8 +318,15 @@ func (a *AuthService) LoadAPIKey() (string, error) {
 		return a.apiKey, nil
 	}
 
-	// Retrieve from OS keyring
-	apiKey, err := keyring.Get(serviceName, apiKeyAccount)
+	// Primary: Try to load from encrypted file
+	apiKey, err := a.loadFromEncryptedFile()
+	if err == nil && apiKey != "" {
+		a.apiKey = apiKey
+		return apiKey, nil
+	}
+
+	// Backup: Try to load from OS keyring (for migration from old version)
+	apiKey, err = keyring.Get(serviceName, apiKeyAccount)
 	if err != nil {
 		if err == keyring.ErrNotFound {
 			return "", nil // No API key stored
@@ -165,18 +334,29 @@ func (a *AuthService) LoadAPIKey() (string, error) {
 		return "", fmt.Errorf("failed to load API key: %w", err)
 	}
 
+	// Migrate to encrypted file if we found it in keyring
+	if apiKey != "" {
+		_ = a.saveToEncryptedFile(apiKey)
+	}
+
 	a.apiKey = apiKey
 	return apiKey, nil
 }
 
-// DeleteAPIKey removes the API key from storage
+// DeleteAPIKey removes the API key from both encrypted file and keyring
 func (a *AuthService) DeleteAPIKey() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Delete from encrypted file
+	if err := a.deleteEncryptedFile(); err != nil {
+		// Continue even if file deletion fails
+	}
+
+	// Delete from OS keyring
 	err := keyring.Delete(serviceName, apiKeyAccount)
 	if err != nil && err != keyring.ErrNotFound {
-		return fmt.Errorf("failed to delete API key: %w", err)
+		return fmt.Errorf("failed to delete API key from keyring: %w", err)
 	}
 
 	a.apiKey = ""

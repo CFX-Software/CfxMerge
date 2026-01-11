@@ -128,6 +128,30 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class BackupSummary {
+	    path: string;
+	    name: string;
+	    backupTimestamp: string;
+	    scannedFolder: string;
+	    totalFiles: number;
+	    totalSize: number;
+	    resourceName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BackupSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.backupTimestamp = source["backupTimestamp"];
+	        this.scannedFolder = source["scannedFolder"];
+	        this.totalFiles = source["totalFiles"];
+	        this.totalSize = source["totalSize"];
+	        this.resourceName = source["resourceName"];
+	    }
+	}
 	export class FileInfo {
 	    path: string;
 	    name: string;
@@ -240,6 +264,56 @@ export namespace main {
 	    }
 	}
 	
+	export class MergeValidation {
+	    valid: boolean;
+	    errors: string[];
+	    warnings: string[];
+	    totalFiles: number;
+	    totalSize: number;
+	    backupSize: number;
+	    resourceName: string;
+	    backupPath: string;
+	    backupPathAlt: string;
+	    availableSpace: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MergeValidation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.valid = source["valid"];
+	        this.errors = source["errors"];
+	        this.warnings = source["warnings"];
+	        this.totalFiles = source["totalFiles"];
+	        this.totalSize = source["totalSize"];
+	        this.backupSize = source["backupSize"];
+	        this.resourceName = source["resourceName"];
+	        this.backupPath = source["backupPath"];
+	        this.backupPathAlt = source["backupPathAlt"];
+	        this.availableSpace = source["availableSpace"];
+	    }
+	}
+	export class RestoreResult {
+	    backupPath: string;
+	    filesRestored: number;
+	    filesMissing: number;
+	    errors: string[];
+	    success: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RestoreResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.backupPath = source["backupPath"];
+	        this.filesRestored = source["filesRestored"];
+	        this.filesMissing = source["filesMissing"];
+	        this.errors = source["errors"];
+	        this.success = source["success"];
+	    }
+	}
 	export class Result {
 	    ID: string;
 	    JobID: string;

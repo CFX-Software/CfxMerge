@@ -14,6 +14,10 @@ export function ClearConversionHistory() {
   return window['go']['main']['App']['ClearConversionHistory']();
 }
 
+export function CopyResourceNameToClipboard(arg1) {
+  return window['go']['main']['App']['CopyResourceNameToClipboard'](arg1);
+}
+
 export function DeleteConversionJob(arg1) {
   return window['go']['main']['App']['DeleteConversionJob'](arg1);
 }
@@ -54,12 +58,24 @@ export function IsAuthenticated() {
   return window['go']['main']['App']['IsAuthenticated']();
 }
 
+export function ListBackups() {
+  return window['go']['main']['App']['ListBackups']();
+}
+
 export function Logout() {
   return window['go']['main']['App']['Logout']();
 }
 
+export function MergeFiles(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MergeFiles'](arg1, arg2, arg3);
+}
+
 export function OpenFileLocation(arg1) {
   return window['go']['main']['App']['OpenFileLocation'](arg1);
+}
+
+export function RestoreBackup(arg1) {
+  return window['go']['main']['App']['RestoreBackup'](arg1);
 }
 
 export function RetryConversionJob(arg1) {
@@ -94,6 +110,10 @@ export function SetLaunchOnStartup(arg1) {
   return window['go']['main']['App']['SetLaunchOnStartup'](arg1);
 }
 
+export function StartMerge(arg1, arg2) {
+  return window['go']['main']['App']['StartMerge'](arg1, arg2);
+}
+
 export function StartScan(arg1) {
   return window['go']['main']['App']['StartScan'](arg1);
 }
@@ -104,4 +124,8 @@ export function SubmitConversion(arg1) {
 
 export function UpdateDiscordPresence(arg1) {
   return window['go']['main']['App']['UpdateDiscordPresence'](arg1);
+}
+
+export function ValidateMerge(arg1, arg2) {
+  return window['go']['main']['App']['ValidateMerge'](arg1, arg2);
 }

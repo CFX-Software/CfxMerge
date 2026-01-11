@@ -8,6 +8,8 @@ export function CancelScan():Promise<void>;
 
 export function ClearConversionHistory():Promise<void>;
 
+export function CopyResourceNameToClipboard(arg1:string):Promise<void>;
+
 export function DeleteConversionJob(arg1:string):Promise<void>;
 
 export function DownloadAllJobResults(arg1:string,arg2:string):Promise<void>;
@@ -28,9 +30,15 @@ export function GetSettings():Promise<main.AppSettings>;
 
 export function IsAuthenticated():Promise<boolean>;
 
+export function ListBackups():Promise<Array<main.BackupSummary>>;
+
 export function Logout():Promise<void>;
 
+export function MergeFiles(arg1:Array<string>,arg2:string,arg3:boolean):Promise<void>;
+
 export function OpenFileLocation(arg1:string):Promise<void>;
+
+export function RestoreBackup(arg1:string):Promise<main.RestoreResult>;
 
 export function RetryConversionJob(arg1:string):Promise<string>;
 
@@ -48,8 +56,12 @@ export function SetHardwareAcceleration(arg1:boolean):Promise<void>;
 
 export function SetLaunchOnStartup(arg1:boolean):Promise<void>;
 
+export function StartMerge(arg1:Array<string>,arg2:string):Promise<void>;
+
 export function StartScan(arg1:string):Promise<void>;
 
 export function SubmitConversion(arg1:Array<string>):Promise<string>;
 
 export function UpdateDiscordPresence(arg1:string):Promise<void>;
+
+export function ValidateMerge(arg1:Array<string>,arg2:string):Promise<main.MergeValidation>;

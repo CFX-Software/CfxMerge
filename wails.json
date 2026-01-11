@@ -1,13 +1,32 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "cfxmerge",
-  "outputfilename": "cfxmerge",
+  "name": "CfxMerge",
+  "outputfilename": "CfxMerge",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "version": "1.0.0",
   "author": {
     "name": "Vexoa",
     "email": "vexoatheguy@gmail.com"
+  },
+  "info": {
+    "companyName": "Vexoa",
+    "productName": "CfxMerge",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026 Vexoa",
+    "comments": "Professional FiveM resource management and conversion tool"
+  },
+  "nsis": {
+    "productName": "CfxMerge",
+    "info": {
+      "productVersion": "1.0.0",
+      "companyName": "Vexoa",
+      "copyright": "© 2026 Vexoa. All rights reserved.",
+      "comments": "Merge duplicate FiveM resources and convert YTD files with ease"
+    },
+    "languages": ["English"],
+    "installDirectory": "CfxMerge"
   }
 }

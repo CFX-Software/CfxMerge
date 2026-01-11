@@ -1,6 +1,6 @@
 import { GitMerge, RefreshCw, Settings as SettingsIcon, Terminal, Database } from 'lucide-react';
 
-type Tab = 'merger' | 'converter' | 'settings';
+type Tab = 'merger' | 'converter' | 'settings' | 'resource-db';
 
 interface SidebarProps {
   activeTab: Tab;
@@ -62,13 +62,20 @@ export const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-[#52525b] mb-3 px-2">Internal Tools</div>
           <div className="space-y-1">
+            <button
+              onClick={() => onTabChange('resource-db')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
+                activeTab === 'resource-db'
+                  ? 'bg-[#f48024] text-white'
+                  : 'text-[#a1a1aa] hover:text-white hover:bg-[#18181b]'
+              }`}
+            >
+              <Database size={16} strokeWidth={2} />
+              <span className="text-[13px] font-medium">Merge Backups</span>
+            </button>
             <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-[#52525b] hover:text-[#a1a1aa] hover:bg-[#18181b] transition-colors">
               <Terminal size={16} strokeWidth={2} />
               <span className="text-[13px] font-medium">Console Logs</span>
-            </button>
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-[#52525b] hover:text-[#a1a1aa] hover:bg-[#18181b] transition-colors">
-              <Database size={16} strokeWidth={2} />
-              <span className="text-[13px] font-medium">Resource DB</span>
             </button>
           </div>
         </div>

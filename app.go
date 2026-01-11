@@ -18,6 +18,7 @@ type App struct {
 	discordRPC       *DiscordRPC
 	authService      *AuthService
 	converterService *ConverterService
+	mergerService    *MergeService
 }
 
 // NewApp creates a new App application struct
@@ -38,6 +39,9 @@ func (a *App) startup(ctx context.Context) {
 
 	// Initialize Converter Service
 	a.converterService = NewConverterService(ctx, a.authService)
+
+	// Initialize Merger Service
+	a.mergerService = NewMergeService(ctx, a.authService)
 
 	// Try to load saved API key
 	apiKey, err := a.authService.LoadAPIKey()
@@ -215,6 +219,8 @@ func (a *App) UpdateDiscordPresence(view string) error {
 	case "converter":
 		return a.discordRPC.UpdateConverterView()
 	case "settings":
+		return a.discordRPC.UpdateSettingsView()
+	case "resource-db":
 		return a.discordRPC.UpdateSettingsView()
 	default:
 		return a.discordRPC.UpdateMergerView()
@@ -397,4 +403,50 @@ func (a *App) DownloadAllJobResults(jobID string, downloadPath string) error {
 		return fmt.Errorf("converter service not initialized")
 	}
 	return a.converterService.DownloadAllResults(jobID, downloadPath)
+}
+
+// MergeFiles merges the selected files using the API
+func (a *App) MergeFiles(files []string, resourceName string, autoFixYdr bool) error {
+	if a.mergerService == nil {
+		return fmt.Errorf("merger service not initialized")
+	}
+	_, err := a.mergerService.MergeFiles(files, resourceName, autoFixYdr)
+	return err
+}
+
+// StartMerge initiates the complete merge workflow with backups
+func (a *App) StartMerge(files []string, scannedFolder string) error {
+	if a.mergerService == nil {
+		return fmt.Errorf("merger service not initialized")
+	}
+	return a.mergerService.StartMergeWorkflow(files, scannedFolder)
+}
+
+// ValidateMerge validates files before merging
+func (a *App) ValidateMerge(files []string, scannedFolder string) (*MergeValidation, error) {
+	if a.mergerService == nil {
+		return nil, fmt.Errorf("merger service not initialized")
+	}
+	return a.mergerService.ValidateMergeRequest(files, scannedFolder)
+}
+
+// ListBackups returns backups stored in the secondary backup directory.
+func (a *App) ListBackups() ([]BackupSummary, error) {
+	if a.mergerService == nil {
+		return nil, fmt.Errorf("merger service not initialized")
+	}
+	return a.mergerService.ListSecondaryBackups()
+}
+
+// RestoreBackup restores files from a backup manifest.
+func (a *App) RestoreBackup(backupPath string) (*RestoreResult, error) {
+	if a.mergerService == nil {
+		return nil, fmt.Errorf("merger service not initialized")
+	}
+	return a.mergerService.RestoreBackup(backupPath)
+}
+
+// CopyResourceNameToClipboard copies resource name to clipboard
+func (a *App) CopyResourceNameToClipboard(resourceName string) error {
+	return runtime.ClipboardSetText(a.ctx, resourceName)
 }

@@ -4,12 +4,13 @@ import { Sidebar } from './components/Sidebar';
 import { MergerView } from './views/MergerView';
 import { ConverterView } from './views/ConverterView';
 import { SettingsView } from './views/SettingsView';
+import { ResourceDbView } from './views/ResourceDbView';
 import { AuthView } from './views/AuthView';
 import { UpdateDiscordPresence, IsAuthenticated, Logout } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import './style.css';
 
-type Tab = 'merger' | 'converter' | 'settings';
+type Tab = 'merger' | 'converter' | 'settings' | 'resource-db';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('merger');
@@ -98,6 +99,8 @@ function App() {
         return <ConverterView key="converter" />;
       case 'settings':
         return <SettingsView key="settings" />;
+      case 'resource-db':
+        return <ResourceDbView key="resource-db" />;
       default:
         return <MergerView key="merger" />;
     }
