@@ -1,0 +1,98 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v1.0.1, etc.
+
+jobs:
+  build:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install NSIS
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Application
+        run: |
+          wails build -nsis -clean
+
+      - name: Get Version from Tag
+        id: get_version
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          echo "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        shell: pwsh
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: CfxMerge ${{ steps.get_version.outputs.version }}
+          body: |
+            ## CfxMerge v${{ steps.get_version.outputs.version }}
+
+            ### 🚀 Downloads
+            - **Installer** (Recommended): `CfxMerge-amd64-installer.exe`
+              - Professional Windows installer with Start Menu shortcuts
+              - Automatic uninstaller included
+
+            - **Portable**: `CfxMerge.exe`
+              - No installation needed
+              - Run from anywhere
+
+            ### 🔧 Features
+            - Merge duplicate FiveM resources automatically
+            - Convert YTD files to individual textures
+            - Production-grade authentication with Convex
+            - Dual backup system for safety
+
+            ### 📋 Requirements
+            - Windows 10/11 (64-bit)
+            - WebView2 Runtime (usually pre-installed)
+
+            ---
+            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            build/bin/CfxMerge-amd64-installer.exe
+            build/bin/CfxMerge.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfxmerge-windows-${{ steps.get_version.outputs.version }}
+          path: |
+            build/bin/CfxMerge-amd64-installer.exe
+            build/bin/CfxMerge.exe
+          retention-days: 30
