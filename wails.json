@@ -1,0 +1,32 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "CfxMerge",
+  "outputfilename": "CfxMerge",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "version": "1.0.0",
+  "author": {
+    "name": "Inkwell Studios",
+    "email": "vexoatheguy@gmail.com"
+  },
+  "info": {
+    "companyName": "Inkwell Studios",
+    "productName": "CfxMerge",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026 Inkwell Studios",
+    "comments": "Professional FiveM resource management and conversion tool"
+  },
+  "nsis": {
+    "productName": "CfxMerge",
+    "info": {
+      "productVersion": "1.0.0",
+      "companyName": "Inkwell Studios",
+      "copyright": "© 2026 Inkwell Studios. All rights reserved.",
+      "comments": "Merge duplicate FiveM resources and convert YTD files with ease"
+    },
+    "languages": ["English"],
+    "installDirectory": "CfxMerge"
+  }
+}
